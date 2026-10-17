@@ -1,7 +1,8 @@
 # Production counterpart of the Vite dev proxy in vite.config.js.
 #
 # Same contract: the browser only ever talks to this origin; nginx forwards
-# /api, /media, /health and FastAPI's /docs to the API. Keep the two files in
+# /api, /media, /health and FastAPI's /docs to the API, and /${MINIO_BUCKET}/
+# (presigned run files, MINIO_PUBLIC_URL=/) to MinIO. Keep the two files in
 # step -- a path proxied in dev but not here is a 404 that only shows up after
 # a build.
 #
@@ -55,6 +56,14 @@ server {
     location /media/ {
         proxy_pass       ${ATLAS_API_URL};
         proxy_set_header Host $host;
+    }
+
+    # Presigned links to run files in MinIO. The API signs them for
+    # MINIO_ENDPOINT, and nginx sends that same Host ($proxy_host, its default),
+    # so the signature checks out. Range requests pass through for video seeking.
+    location /${MINIO_BUCKET}/ {
+        proxy_pass        ${ATLAS_MINIO_URL};
+        proxy_buffering   off;
     }
 
     location = /health {

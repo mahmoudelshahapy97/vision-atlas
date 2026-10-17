@@ -20,7 +20,8 @@ name: vision-atlas
 # MinIO credentials in a .env next to this file (git-ignored):
 #   MINIO_ROOT_USER=atlas
 #   MINIO_ROOT_PASSWORD=<at least 8 characters>
-#   MINIO_PUBLIC_URL=http://<this host>:9000    where browsers reach MinIO
+#   MINIO_PUBLIC_URL=/    default: links go through the console (port 8080);
+#                         or http://<this host>:9000 to load straight from MinIO
 
 services:
   postgres:
@@ -70,13 +71,15 @@ services:
       # set (in the shell or ./.env) to a model server elsewhere.
       MODELS_URL: ${MODELS_URL:-http://models:8500}
       # Object storage (minio service below). Presigned links are signed for
-      # MINIO_PUBLIC_URL, the address browsers use, not minio:9000.
+      # MINIO_PUBLIC_URL, the address browsers use, not minio:9000. The
+      # default "/" makes them same-origin paths that web proxies to MinIO,
+      # so browsers only need port 8080 (no 9000 forwarding).
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
       MINIO_BUCKET: ${MINIO_BUCKET:-atlas}
       MINIO_SECURE: "false"
-      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-/}
     ports:
       - "8000:8000"
     volumes:
@@ -111,9 +114,13 @@ services:
     restart: unless-stopped
     depends_on:
       - api
+      - minio
     environment:
-      # nginx.conf.template proxies /api, /media and the docs here.
+      # nginx.conf.template proxies /api, /media and the docs here,
       ATLAS_API_URL: http://api:8000
+      # and presigned run files (/<bucket>/...) here.
+      ATLAS_MINIO_URL: http://minio:9000
+      MINIO_BUCKET: ${MINIO_BUCKET:-atlas}
     ports:
       - "8080:80"
 

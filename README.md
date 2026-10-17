@@ -39,7 +39,7 @@ cp backend/.env.example backend/.env   # then set JWT_SECRET (see the comment in
 cat > .env <<'ENV'                     # MinIO credentials, next to docker-compose.yml (git-ignored)
 MINIO_ROOT_USER=atlas
 MINIO_ROOT_PASSWORD=<at least 8 characters>
-MINIO_PUBLIC_URL=http://localhost:9000  # where browsers reach MinIO: use this host's name or IP
+MINIO_PUBLIC_URL=/  # default: run files load through the console on :8080 (or http://<host>:9000 to go direct)
 ENV
 docker compose up --build
 ```
@@ -77,7 +77,10 @@ with its object key and a presigned GET link (7 days by default,
 `MINIO_URL_EXPIRE_HOURS`). The run's JSON carries the same key and link. The
 API re-signs a link that is about to expire whenever it returns the run, so the
 console always gets a working URL. Links are signed for `MINIO_PUBLIC_URL`, so
-that must be an address the browser can reach.
+that must be an address the browser can reach. With `/` (the compose default)
+they are same-origin paths (`/atlas/<key>?X-Amz-...`) that the web container
+proxies to MinIO, so a browser that reaches the console reaches the files too;
+links stored under another `MINIO_PUBLIC_URL` are re-signed when next read.
 
 Pipelines still work on local files: a run's folder in the `atlas-data` volume
 is scratch space that is deleted once its files are in MinIO. If MinIO is down

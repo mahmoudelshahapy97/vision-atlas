@@ -114,8 +114,9 @@ class MediaService:
     async def sign_runs(self, runs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Put the current link of every stored file into the runs (in place).
 
-        Links that expire within the hour are re-signed first and saved, so
-        what a client receives is always good for at least an hour.
+        Links that expire within the hour, or were signed for another
+        MINIO_PUBLIC_URL, are re-signed first and saved, so what a client
+        receives is always good for at least an hour.
         """
         ids = [r["id"] for r in runs if any(h.get(k) for h, _, k in file_refs(r.get("inputs"), r.get("result")))]
         if not ids:
@@ -128,8 +129,9 @@ class MediaService:
         links = {row["object_key"]: row["url"] for row in rows}
         soon = datetime.now(timezone.utc) + _RESIGN_MARGIN
         renewed: List[Tuple[str, str, datetime]] = []
+        base = object_store.link_base()
         for row in rows:
-            if row["url_expires_at"] > soon:
+            if row["url_expires_at"] > soon and row["url"].startswith(base):
                 continue
             signed = object_store.presign(row["object_key"], row["name"] if row["kind"] == "document" else None)
             if signed:

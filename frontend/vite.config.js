@@ -12,11 +12,15 @@ import react from "@vitejs/plugin-react";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const target = env.VITE_API_TARGET || env.API_PROXY_TARGET || "http://127.0.0.1:8000";
+  // Presigned run files when the API has MINIO_PUBLIC_URL=/. The API signs for
+  // its MINIO_ENDPOINT, so this target's host:port must be that same address.
+  const minio = env.MINIO_PROXY_TARGET || "http://localhost:9000";
 
   const proxy = {
     "/api": { target, changeOrigin: true },
     // Uploaded inputs and run outputs (annotated images, videos, CSV/ZIP files).
     "/media": { target, changeOrigin: true },
+    [`/${env.MINIO_BUCKET || "atlas"}/`]: { target: minio, changeOrigin: true },
     // Health probe outside the /api prefix.
     "/health": { target, changeOrigin: true },
     // FastAPI's own docs.

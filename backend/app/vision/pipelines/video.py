@@ -185,7 +185,12 @@ def speed_estimation(ctx):
           VIDEO, [Param("objects", "Objects to watch", "multiselect", ["backpack", "handbag", "suitcase"],
                         options=["backpack", "handbag", "suitcase", "umbrella", "bottle", "laptop", "box"]),
                   Param("seconds", "Alert after unattended for (s)", "number", 5, 1, 120, 1),
-                  Param("radius", "Owner distance (× object size)", "number", 3, 1, 10, 0.5), CONF, STRIDE],
+                  Param("radius", "Owner distance (× object size)", "number", 3, 1, 10, 0.5),
+                  Param("conf", "Confidence threshold", "number", 0.15, 0.05, 0.95, 0.05,
+                        help="Bags far from the camera score low; raise this if you get false alarms."),
+                  Param("imgsz", "Inference size (px)", "select", 1280, options=[640, 960, 1280], advanced=True,
+                        help="Left-behind items are small in CCTV views; 1280 finds them, 640 is faster."),
+                  STRIDE],
           models=["yolo26-detect"])
 def abandoned_object(ctx):
     f = ctx.file()
@@ -198,7 +203,7 @@ def abandoned_object(ctx):
     mem: list[dict] = []   # static object candidates
     alerts = []
     for i, t, img in frames(f.path, stride):
-        dets = boxes_of(ctx.predict("yolo26-detect", img, conf=float(ctx.p("conf", 0.25)))[0])
+        dets = boxes_of(ctx.predict("yolo26-detect", img, conf=float(ctx.p("conf", 0.15)), imgsz=int(ctx.p("imgsz", 1280)))[0])
         objs = [d for d in dets if d["cls"] in watch]
         people = [d for d in dets if d["cls"] == "person"]
         for o in objs:

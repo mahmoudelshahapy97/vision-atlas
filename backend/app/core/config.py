@@ -135,6 +135,7 @@ class Settings(BaseSettings):
     minio_bucket: str = "atlas"
     minio_secure: bool = False
     # Where browsers reach MinIO; presigned links are signed for this host.
+    # "/": same-origin links through the console's /<bucket>/ proxy.
     # Empty: the same as minio_endpoint.
     minio_public_url: str = ""
     minio_region: str = "us-east-1"  # fixed so signing never asks the server

@@ -99,6 +99,34 @@ def test_video_run_streams_from_minio(client, user_headers):
     assert fetch(client, video["poster"]).status_code == 200
 
 
+@needs_minio
+def test_same_origin_links(client, user_headers, monkeypatch):
+    """MINIO_PUBLIC_URL=/ : links become /<bucket>/<key>?... paths for the console's
+    proxy, and links stored under the old public URL are re-signed on read."""
+    r = client.post("/api/runs", headers=user_headers, data={"pipeline": "video_anomaly", "samples": '{"video": ["street.mp4"]}'})
+    assert r.status_code == 202, r.text
+    pid = r.json()["public_id"]
+    assert wait_run(client, user_headers, pid)["status"] == "done"
+
+    monkeypatch.setattr(config, "minio_public_url", "/")
+    monkeypatch.setattr(object_store, "_signer", None)
+    run = client.get(f"/api/runs/{pid}", headers=user_headers).json()
+    for key, url in _links(run):
+        assert url.startswith(f"/{config.minio_bucket}/{key}?") and "X-Amz-Signature" in url
+    assert not _sql("SELECT 1 FROM media_object WHERE object_key LIKE $1 AND url NOT LIKE '/%'", f"runs/{pid}/%")
+    listed = next(x for x in client.get("/api/runs", headers=user_headers).json() if x["public_id"] == pid)
+    assert listed["thumbnail"].startswith(f"/{config.minio_bucket}/runs/{pid}/")
+
+    # What nginx does: forward the path to MinIO with Host = MINIO_ENDPOINT.
+    import httpx
+
+    video = run["result"]["video"]
+    part = httpx.get(f"http://{config.minio_endpoint}{video['url']}", headers={"Range": "bytes=0-99"}, timeout=30)
+    assert part.status_code == 206 and part.headers["content-type"] == "video/mp4"
+    assert httpx.get(f"http://{config.minio_endpoint}{video['poster']}", timeout=30).status_code == 200
+    assert client.delete(f"/api/runs/{pid}", headers=user_headers).status_code == 204
+
+
 def test_disk_fallback_without_minio(client, user_headers, monkeypatch):
     monkeypatch.setattr(config, "minio_endpoint", "")
     r = client.post("/api/runs", headers=user_headers, data={"project_id": "47", "samples": '{"image": ["codes.jpg"]}'})

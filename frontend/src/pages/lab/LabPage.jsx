@@ -333,7 +333,7 @@ export default function LabPage() {
                         sx={{ width: 56, height: 42, flexShrink: 0, borderRadius: 1.5, overflow: "hidden", bgcolor: "action.hover",
                           "& img": { width: "100%", height: "100%", objectFit: "cover", display: "block" } }}
                       >
-                        {h.thumbnail && <img src={mediaUrl(h.thumbnail)} alt="" />}
+                        {h.thumbnail && <img src={mediaUrl(h.thumbnail)} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }} />}
                       </Box>
                       <ListItemText
                         primary={h.summary?.[0] ? `${h.summary[0].label}: ${h.summary[0].value}` : h.status}
