@@ -1,0 +1,38 @@
+name: vision-atlas-models
+
+# models-serve on a GPU host of its own. On that host:
+#
+#   cp .env.example .env          set MODELS_TOKEN (required: this port is reachable)
+#   docker compose up -d --build
+#
+# Then on the app host put MODELS_URL=http://<this-host>:8500 and the same
+# MODELS_TOKEN in backend/.env, and start the main stack without its own
+# models container:  docker compose up -d --scale models=0
+#
+# Needs the NVIDIA Container Toolkit. Keep 8500 reachable only from the app
+# host (security group / firewall): the token is the only other guard.
+
+services:
+  models:
+    build:
+      context: .
+      args:
+        TORCH_INDEX: https://download.pytorch.org/whl/cu124
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      MODELS_TOKEN: ${MODELS_TOKEN:?set MODELS_TOKEN in models-serve/.env}
+    ports:
+      - "${MODELS_HOST_PORT:-8500}:8500"
+    volumes:
+      - model-weights:/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  model-weights:

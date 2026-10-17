@@ -1,0 +1,18 @@
+# ===== API =====
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+pydantic-settings==2.6.1
+email-validator==2.2.0
+python-dotenv==1.0.1
+python-multipart==0.0.20
+
+# ===== Auth =====
+PyJWT==2.10.1
+bcrypt==4.2.1
+
+# ===== Database =====
+asyncpg==0.30.0
+
+# Vision Lab packages are in requirements-ml.txt and requirements-latex.txt
+# (torch is installed first, from the CPU or CUDA index; see the Dockerfile).

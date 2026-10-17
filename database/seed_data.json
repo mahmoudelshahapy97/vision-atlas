@@ -1,0 +1,3094 @@
+{
+  "domains": [
+    {
+      "code": "A",
+      "name": "Detection & Retail",
+      "slug": "detection-and-retail"
+    },
+    {
+      "code": "B",
+      "name": "Traffic & Transport",
+      "slug": "traffic-and-transport"
+    },
+    {
+      "code": "C",
+      "name": "OCR & Documents",
+      "slug": "ocr-and-documents"
+    },
+    {
+      "code": "D",
+      "name": "Medical & Health",
+      "slug": "medical-and-health"
+    },
+    {
+      "code": "E",
+      "name": "Safety & Security",
+      "slug": "safety-and-security"
+    },
+    {
+      "code": "F",
+      "name": "Industrial Inspection",
+      "slug": "industrial-inspection"
+    },
+    {
+      "code": "G",
+      "name": "Agriculture & Environment",
+      "slug": "agriculture-and-environment"
+    },
+    {
+      "code": "H",
+      "name": "Geospatial & Infrastructure",
+      "slug": "geospatial-and-infrastructure"
+    },
+    {
+      "code": "I",
+      "name": "Image Enhancement",
+      "slug": "image-enhancement"
+    },
+    {
+      "code": "J",
+      "name": "Video & Human Motion",
+      "slug": "video-and-human-motion"
+    },
+    {
+      "code": "K",
+      "name": "Face & Biometrics",
+      "slug": "face-and-biometrics"
+    },
+    {
+      "code": "L",
+      "name": "Fashion & E-Commerce",
+      "slug": "fashion-and-e-commerce"
+    },
+    {
+      "code": "M",
+      "name": "Scientific Imaging",
+      "slug": "scientific-imaging"
+    },
+    {
+      "code": "N",
+      "name": "3D Vision & Robotics",
+      "slug": "3d-vision-and-robotics"
+    },
+    {
+      "code": "O",
+      "name": "Multimodal & Data Tools",
+      "slug": "multimodal-and-data-tools"
+    }
+  ],
+  "task_types": [
+    {
+      "code": "det",
+      "name": "Object detection",
+      "metric": "mAP@0.5:0.95",
+      "steps": [
+        "Collect images and define the class list",
+        "Annotate bounding boxes in YOLO format",
+        "Train a YOLO baseline, then tune image size and augmentation",
+        "Evaluate mAP and review per-class false positives",
+        "Export the model and run it on video or behind an API"
+      ]
+    },
+    {
+      "code": "seg",
+      "name": "Segmentation",
+      "metric": "mIoU · Dice",
+      "steps": [
+        "Collect images and define mask classes",
+        "Annotate polygons or masks (bootstrap with SAM to save time)",
+        "Train U-Net, SegFormer or YOLO-seg",
+        "Evaluate mIoU and Dice per class",
+        "Turn masks into measurements, areas or GIS polygons"
+      ]
+    },
+    {
+      "code": "cls",
+      "name": "Classification",
+      "metric": "Macro-F1 · AUC",
+      "steps": [
+        "Gather labeled images for each class",
+        "Split by source or patient to avoid data leakage",
+        "Fine-tune a pretrained backbone (EfficientNet, ConvNeXt, ViT)",
+        "Evaluate F1, AUC and the confusion matrix",
+        "Add Grad-CAM to check what the model attends to"
+      ]
+    },
+    {
+      "code": "ocr",
+      "name": "OCR & documents",
+      "metric": "CER · WER",
+      "steps": [
+        "Collect document or text images",
+        "Detect, crop and rectify text regions",
+        "Train or fine-tune a recognizer (CRNN or transformer OCR)",
+        "Measure character and word error rates",
+        "Parse fields into structured output (JSON, CSV, Excel)"
+      ]
+    },
+    {
+      "code": "track",
+      "name": "Tracking & video",
+      "metric": "HOTA · IDF1",
+      "steps": [
+        "Record or source representative video",
+        "Run a detector on every frame",
+        "Link detections over time with ByteTrack or BoT-SORT",
+        "Evaluate HOTA, IDF1 and count accuracy",
+        "Add zones, counters, alerts and a dashboard"
+      ]
+    },
+    {
+      "code": "pose",
+      "name": "Pose & landmarks",
+      "metric": "OKS · PCK",
+      "steps": [
+        "Capture video of the target movements",
+        "Extract keypoints with MediaPipe or YOLO-pose",
+        "Compute joint angles and temporal features",
+        "Classify or score the sequences",
+        "Test on unseen people and give real-time feedback"
+      ]
+    },
+    {
+      "code": "gen",
+      "name": "Restoration & generation",
+      "metric": "PSNR · SSIM · LPIPS",
+      "steps": [
+        "Build paired or synthetically degraded training data",
+        "Start from a pretrained restoration or generative model",
+        "Fine-tune on your own domain",
+        "Evaluate PSNR, SSIM and LPIPS, plus a visual review",
+        "Ship a before/after comparison interface"
+      ]
+    },
+    {
+      "code": "3d",
+      "name": "3D & depth",
+      "metric": "AbsRel · Chamfer",
+      "steps": [
+        "Calibrate the camera or cameras",
+        "Capture images from known viewpoints",
+        "Estimate depth or reconstruct geometry",
+        "Compare against measured ground truth",
+        "Export point clouds, meshes or 3D coordinates"
+      ]
+    },
+    {
+      "code": "ret",
+      "name": "Embeddings & search",
+      "metric": "Recall@K",
+      "steps": [
+        "Assemble a gallery of reference images",
+        "Compute embeddings (CLIP, DINOv2, ArcFace)",
+        "Index vectors with FAISS or a vector database",
+        "Evaluate Recall@K and pick match thresholds",
+        "Build the query interface"
+      ]
+    },
+    {
+      "code": "vlm",
+      "name": "Vision-language",
+      "metric": "Answer accuracy",
+      "steps": [
+        "Choose an open vision-language model",
+        "Design prompts and a fixed output format",
+        "Combine it with detection or OCR tools where needed",
+        "Evaluate on a hand-labeled question set",
+        "Add speech, safety checks and a latency budget"
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "id": 1,
+      "title": "Real-Time Object Detection",
+      "slug": "real-time-object-detection",
+      "description": "Detect people, cars, animals, and everyday objects using YOLO.",
+      "domain": "A",
+      "task_type": "det",
+      "level": 1,
+      "technologies": [
+        "Python",
+        "OpenCV",
+        "YOLO26",
+        "PyTorch"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "detect",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "media": [
+            "bus.jpg"
+          ]
+        },
+        "alternatives": [
+          "segment",
+          "track_count"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 2,
+      "title": "Automatic License Plate Recognition (ALPR)",
+      "slug": "automatic-license-plate-recognition-alpr",
+      "description": "Detect license plates, extract characters, and recognize Arabic and English letters and numbers.",
+      "domain": "B",
+      "task_type": "ocr",
+      "level": 3,
+      "technologies": [
+        "YOLO",
+        "OCR",
+        "OpenCV",
+        "CRNN"
+      ],
+      "is_pick": true,
+      "pick_reason": "Your strongest portfolio project: plate detection, Arabic and English character recognition, plate text reconstruction and a results database.",
+      "caution": null,
+      "lab": {
+        "pipeline": "plate_recognition",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "media": [
+            "plate.jpg"
+          ]
+        },
+        "alternatives": [
+          "detect"
+        ],
+        "note": "Upload your own YOLO26 plate or character model in Models to use it here."
+      }
+    },
+    {
+      "id": 3,
+      "title": "People Counting System",
+      "slug": "people-counting-system",
+      "description": "Count people entering and leaving shops, offices, or public areas.",
+      "domain": "A",
+      "task_type": "track",
+      "level": 2,
+      "technologies": [
+        "YOLO",
+        "ByteTrack",
+        "OpenCV"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "track_count",
+        "support": "ready",
+        "params": {
+          "classes": [
+            "person"
+          ]
+        },
+        "samples": {
+          "media": [
+            "street.mp4"
+          ]
+        },
+        "alternatives": [
+          "detect"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 4,
+      "title": "Industrial Defect Detection",
+      "slug": "industrial-defect-detection",
+      "description": "Detect cracks, scratches, missing components, and manufacturing defects.",
+      "domain": "F",
+      "task_type": "det",
+      "level": 2,
+      "technologies": [
+        "YOLO",
+        "anomaly detection",
+        "PyTorch"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "golden_template",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "reference": [
+            "pcb_reference.jpg"
+          ],
+          "test": [
+            "pcb_test.jpg"
+          ]
+        },
+        "alternatives": [
+          "texture_defect",
+          "open_vocab"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 5,
+      "title": "Product Recognition and Inventory Counting",
+      "slug": "product-recognition-and-inventory-counting",
+      "description": "Identify products on shelves and automatically estimate stock quantities.",
+      "domain": "A",
+      "task_type": "det",
+      "level": 2,
+      "technologies": [
+        "YOLO",
+        "object tracking",
+        "classification"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "open_vocab",
+        "support": "zero_shot",
+        "params": {
+          "prompts": "bottle, can, box, jar, package"
+        },
+        "samples": null,
+        "alternatives": [
+          "detect"
+        ],
+        "note": "Train YOLO26 on photos of your own shelves for product-level (SKU) recognition."
+      }
+    },
+    {
+      "id": 6,
+      "title": "Smart Traffic Monitoring",
+      "slug": "smart-traffic-monitoring",
+      "description": "Detect vehicles, classify them, count traffic, and measure vehicle flow.",
+      "domain": "B",
+      "task_type": "track",
+      "level": 2,
+      "technologies": [
+        "YOLO",
+        "tracking",
+        "OpenCV"
+      ],
+      "is_pick": true,
+      "pick_reason": "Multi-object tracking and vehicle analytics: track vehicles, count them, classify types and compute traffic statistics.",
+      "caution": null,
+      "lab": {
+        "pipeline": "track_count",
+        "support": "ready",
+        "params": {
+          "classes": [
+            "car",
+            "truck",
+            "bus",
+            "motorcycle",
+            "bicycle"
+          ],
+          "line": [
+            [
+              0.05,
+              0.7
+            ],
+            [
+              0.95,
+              0.7
+            ]
+          ]
+        },
+        "samples": {
+          "media": [
+            "street.mp4"
+          ]
+        },
+        "alternatives": [
+          "detect",
+          "speed_estimation"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 7,
+      "title": "Vehicle Speed Estimation",
+      "slug": "vehicle-speed-estimation",
+      "description": "Estimate vehicle speed from video using tracking and calibrated road distances.",
+      "domain": "B",
+      "task_type": "track",
+      "level": 3,
+      "technologies": [
+        "YOLO",
+        "ByteTrack",
+        "perspective calibration"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "speed_estimation",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "video": [
+            "street.mp4"
+          ]
+        },
+        "alternatives": [
+          "track_count"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 8,
+      "title": "Helmet Detection System",
+      "slug": "helmet-detection-system",
+      "description": "Identify motorcycle riders wearing helmets and flag potential violations.",
+      "domain": "B",
+      "task_type": "det",
+      "level": 1,
+      "technologies": [
+        "YOLO",
+        "image classification"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "helmet_check",
+        "support": "zero_shot",
+        "params": {},
+        "samples": {
+          "media": [
+            "bus.jpg"
+          ]
+        },
+        "alternatives": [
+          "open_vocab"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 9,
+      "title": "Road Damage Detection",
+      "slug": "road-damage-detection",
+      "description": "Detect potholes, cracks, and damaged road surfaces from camera footage.",
+      "domain": "B",
+      "task_type": "seg",
+      "level": 2,
+      "technologies": [
+        "YOLO segmentation",
+        "OpenCV"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "open_vocab",
+        "support": "zero_shot",
+        "params": {
+          "prompts": "pothole, road crack, damaged road"
+        },
+        "samples": {
+          "media": [
+            "crack.jpg"
+          ]
+        },
+        "alternatives": [
+          "crack_analysis"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 10,
+      "title": "Smart Parking Management",
+      "slug": "smart-parking-management",
+      "description": "Detect available parking spaces, count occupied spots, and show availability on a dashboard.",
+      "domain": "B",
+      "task_type": "det",
+      "level": 2,
+      "technologies": [
+        "YOLO",
+        "segmentation",
+        "FastAPI"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "parking_occupancy",
+        "support": "ready",
+        "params": {},
+        "samples": null,
+        "alternatives": [
+          "detect"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 11,
+      "title": "Arabic Handwriting Recognition",
+      "slug": "arabic-handwriting-recognition",
+      "description": "Convert handwritten Arabic words and sentences into machine-readable text.",
+      "domain": "C",
+      "task_type": "ocr",
+      "level": 3,
+      "technologies": [
+        "CNN",
+        "CRNN",
+        "Transformer OCR"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "ocr_document",
+        "support": "baseline",
+        "params": {
+          "langs": [
+            "ar"
+          ]
+        },
+        "samples": {
+          "image": [
+            "document.jpg"
+          ]
+        },
+        "alternatives": [],
+        "note": "Printed Arabic reads well today; handwriting needs a recognizer fine-tuned on handwritten data."
+      }
+    },
+    {
+      "id": 12,
+      "title": "Arabic Document Digitization",
+      "slug": "arabic-document-digitization",
+      "description": "Extract text from scanned Arabic documents, forms, and printed records.",
+      "domain": "C",
+      "task_type": "ocr",
+      "level": 2,
+      "technologies": [
+        "PaddleOCR",
+        "Tesseract",
+        "OpenCV"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "ocr_document",
+        "support": "ready",
+        "params": {
+          "langs": [
+            "ar",
+            "en"
+          ]
+        },
+        "samples": {
+          "image": [
+            "document.jpg"
+          ]
+        },
+        "alternatives": [
+          "document_scanner"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 13,
+      "title": "ID Card Information Extraction",
+      "slug": "id-card-information-extraction",
+      "description": "Detect document boundaries and extract selected fields such as names and dates.",
+      "domain": "C",
+      "task_type": "ocr",
+      "level": 2,
+      "technologies": [
+        "OCR",
+        "perspective correction",
+        "field extraction"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "id_card",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "image": [
+            "id_card.jpg"
+          ]
+        },
+        "alternatives": [
+          "ocr_document"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 14,
+      "title": "Receipt and Invoice Scanner",
+      "slug": "receipt-and-invoice-scanner",
+      "description": "Read receipts, identify totals, dates, and line items, and export the results to Excel.",
+      "domain": "C",
+      "task_type": "ocr",
+      "level": 2,
+      "technologies": [
+        "OCR",
+        "document layout analysis",
+        "Python"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "receipt",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "image": [
+            "receipt.jpg"
+          ]
+        },
+        "alternatives": [
+          "ocr_document"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 15,
+      "title": "Arabic Road Sign Recognition",
+      "slug": "arabic-road-sign-recognition",
+      "description": "Detect traffic signs and classify Arabic text or symbols on signs.",
+      "domain": "B",
+      "task_type": "det",
+      "level": 2,
+      "technologies": [
+        "YOLO",
+        "OCR",
+        "classification"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "road_sign_reader",
+        "support": "zero_shot",
+        "params": {},
+        "samples": {
+          "image": [
+            "bus.jpg"
+          ]
+        },
+        "alternatives": [
+          "open_vocab"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 16,
+      "title": "Chest X-Ray Image Classification",
+      "slug": "chest-x-ray-image-classification",
+      "description": "Train a model to classify selected radiographic findings using labeled medical images.",
+      "domain": "D",
+      "task_type": "cls",
+      "level": 2,
+      "technologies": [
+        "CNN",
+        "EfficientNet",
+        "transfer learning"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": "Medical projects need appropriate datasets and expert-reviewed evaluation. They are research and learning tools, not a substitute for clinical diagnosis.",
+      "lab": {
+        "pipeline": "medical_classify",
+        "support": "custom_model",
+        "params": {
+          "mode": "chest x-ray"
+        },
+        "samples": null,
+        "alternatives": [
+          "promptable_segmentation"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 17,
+      "title": "Diabetic Retinopathy Detection",
+      "slug": "diabetic-retinopathy-detection",
+      "description": "Analyze retinal images to classify signs of diabetic retinopathy.",
+      "domain": "D",
+      "task_type": "cls",
+      "level": 2,
+      "technologies": [
+        "CNN",
+        "vision transformers"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": "Medical projects need appropriate datasets and expert-reviewed evaluation. They are research and learning tools, not a substitute for clinical diagnosis.",
+      "lab": {
+        "pipeline": "medical_classify",
+        "support": "custom_model",
+        "params": {
+          "mode": "retina"
+        },
+        "samples": null,
+        "alternatives": [
+          "promptable_segmentation"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 18,
+      "title": "Skin Lesion Classification",
+      "slug": "skin-lesion-classification",
+      "description": "Classify labeled skin lesion images for research and educational use.",
+      "domain": "D",
+      "task_type": "cls",
+      "level": 2,
+      "technologies": [
+        "EfficientNet",
+        "ResNet",
+        "PyTorch"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": "Medical projects need appropriate datasets and expert-reviewed evaluation. They are research and learning tools, not a substitute for clinical diagnosis.",
+      "lab": {
+        "pipeline": "medical_classify",
+        "support": "custom_model",
+        "params": {
+          "mode": "skin lesion"
+        },
+        "samples": null,
+        "alternatives": [
+          "promptable_segmentation"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 19,
+      "title": "Blood Cell Detection and Counting",
+      "slug": "blood-cell-detection-and-counting",
+      "description": "Detect and count different blood cell types in microscope images.",
+      "domain": "D",
+      "task_type": "det",
+      "level": 2,
+      "technologies": [
+        "YOLO",
+        "segmentation",
+        "instance counting"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": "Medical projects need appropriate datasets and expert-reviewed evaluation. They are research and learning tools, not a substitute for clinical diagnosis.",
+      "lab": {
+        "pipeline": "cell_counting",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "cells.jpg"
+          ]
+        },
+        "alternatives": [
+          "particle_analysis",
+          "open_vocab"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 20,
+      "title": "Medical Image Segmentation",
+      "slug": "medical-image-segmentation",
+      "description": "Segment organs, tissues, or other anatomical structures in medical images.",
+      "domain": "D",
+      "task_type": "seg",
+      "level": 3,
+      "technologies": [
+        "U-Net",
+        "nnU-Net",
+        "segmentation metrics"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": "Medical projects need appropriate datasets and expert-reviewed evaluation. They are research and learning tools, not a substitute for clinical diagnosis.",
+      "lab": {
+        "pipeline": "promptable_segmentation",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "image": [
+            "cells.jpg"
+          ]
+        },
+        "alternatives": [
+          "segment"
+        ],
+        "note": "SAM 2.1 outlines structures you click; upload a YOLO26-seg model trained on your scans for automatic segmentation."
+      }
+    },
+    {
+      "id": 21,
+      "title": "PPE Safety Detection",
+      "slug": "ppe-safety-detection",
+      "description": "Detect helmets, safety vests, and other protective equipment in industrial environments.",
+      "domain": "E",
+      "task_type": "det",
+      "level": 1,
+      "technologies": [
+        "YOLO",
+        "tracking",
+        "video analytics"
+      ],
+      "is_pick": true,
+      "pick_reason": "Real-time safety monitoring: helmets, vests and restricted-zone entry. A good intermediate build.",
+      "caution": null,
+      "lab": {
+        "pipeline": "ppe_compliance",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "media": [
+            "bus.jpg"
+          ]
+        },
+        "alternatives": [
+          "open_vocab"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 22,
+      "title": "Human Fall Detection",
+      "slug": "human-fall-detection",
+      "description": "Identify possible falls from video using body pose and movement patterns.",
+      "domain": "E",
+      "task_type": "pose",
+      "level": 2,
+      "technologies": [
+        "pose estimation",
+        "temporal models"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "fall_detection",
+        "support": "rules",
+        "params": {},
+        "samples": {
+          "media": [
+            "fall.mp4"
+          ]
+        },
+        "alternatives": [
+          "pose"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 23,
+      "title": "Exercise Posture Analysis",
+      "slug": "exercise-posture-analysis",
+      "description": "Analyze body joints to count repetitions and evaluate exercise form.",
+      "domain": "J",
+      "task_type": "pose",
+      "level": 1,
+      "technologies": [
+        "MediaPipe",
+        "YOLO pose",
+        "OpenCV"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "exercise_counter",
+        "support": "rules",
+        "params": {},
+        "samples": {
+          "media": [
+            "zidane.jpg"
+          ]
+        },
+        "alternatives": [
+          "pose"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 24,
+      "title": "Workplace Unsafe-Action Detection",
+      "slug": "workplace-unsafe-action-detection",
+      "description": "Detect defined safety violations, such as entering restricted zones or approaching hazardous machinery.",
+      "domain": "E",
+      "task_type": "pose",
+      "level": 3,
+      "technologies": [
+        "object detection",
+        "pose estimation",
+        "tracking"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "restricted_zone",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "media": [
+            "street.mp4"
+          ]
+        },
+        "alternatives": [
+          "pose"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 25,
+      "title": "Abandoned Object Detection",
+      "slug": "abandoned-object-detection",
+      "description": "Detect objects left unattended for a defined period in monitored spaces.",
+      "domain": "E",
+      "task_type": "track",
+      "level": 3,
+      "technologies": [
+        "object tracking",
+        "temporal logic",
+        "video analytics"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "abandoned_object",
+        "support": "rules",
+        "params": {},
+        "samples": {
+          "video": [
+            "street.mp4"
+          ]
+        },
+        "alternatives": [
+          "detect"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 26,
+      "title": "Plant Disease Detection",
+      "slug": "plant-disease-detection",
+      "description": "Identify visible leaf diseases from crop images and classify disease categories.",
+      "domain": "G",
+      "task_type": "cls",
+      "level": 1,
+      "technologies": [
+        "YOLO",
+        "CNN",
+        "transfer learning"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "leaf_health",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "leaf.jpg"
+          ]
+        },
+        "alternatives": [
+          "classify",
+          "open_vocab"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 27,
+      "title": "Fruit Detection and Ripeness Estimation",
+      "slug": "fruit-detection-and-ripeness-estimation",
+      "description": "Detect fruit, count crops, and classify their apparent ripeness.",
+      "domain": "G",
+      "task_type": "det",
+      "level": 1,
+      "technologies": [
+        "YOLO",
+        "image classification",
+        "color analysis"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "fruit_ripeness",
+        "support": "zero_shot",
+        "params": {},
+        "samples": null,
+        "alternatives": [
+          "detect"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 28,
+      "title": "Vision-Guided Robotic Picking",
+      "slug": "vision-guided-robotic-picking",
+      "description": "Detect objects and estimate their positions so a robot can pick and sort them.",
+      "domain": "N",
+      "task_type": "3d",
+      "level": 3,
+      "technologies": [
+        "object detection",
+        "camera calibration",
+        "robotics"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "robot_picking",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "image": [
+            "bus.jpg"
+          ]
+        },
+        "alternatives": [
+          "segment"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 29,
+      "title": "Satellite Image Segmentation",
+      "slug": "satellite-image-segmentation",
+      "description": "Identify buildings, roads, vegetation, and water in aerial or satellite imagery.",
+      "domain": "H",
+      "task_type": "seg",
+      "level": 2,
+      "technologies": [
+        "U-Net",
+        "SegFormer",
+        "geospatial imagery"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "land_cover",
+        "support": "classical",
+        "params": {
+          "objects": true
+        },
+        "samples": {
+          "image": [
+            "aerial.jpg"
+          ]
+        },
+        "alternatives": [
+          "obb",
+          "building_footprints"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 30,
+      "title": "Monocular Depth Estimation",
+      "slug": "monocular-depth-estimation",
+      "description": "Estimate the relative or metric depth of objects from a single camera image.",
+      "domain": "N",
+      "task_type": "3d",
+      "level": 2,
+      "technologies": [
+        "Depth Anything",
+        "MiDaS",
+        "deep learning"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "depth_estimation",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "image": [
+            "bus.jpg"
+          ]
+        },
+        "alternatives": [],
+        "note": null
+      }
+    },
+    {
+      "id": 31,
+      "title": "Low-Light Image Enhancement",
+      "slug": "low-light-image-enhancement",
+      "description": "Improve dark images captured at night while preserving details and reducing noise.",
+      "domain": "I",
+      "task_type": "gen",
+      "level": 2,
+      "technologies": [
+        "Zero-DCE",
+        "Retinex",
+        "EnlightenGAN"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "low_light",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "lowlight.jpg"
+          ]
+        },
+        "alternatives": [],
+        "note": null
+      }
+    },
+    {
+      "id": 32,
+      "title": "AI Image Deblurring",
+      "slug": "ai-image-deblurring",
+      "description": "Recover details from motion-blurred or out-of-focus photographs.",
+      "domain": "I",
+      "task_type": "gen",
+      "level": 3,
+      "technologies": [
+        "Restormer",
+        "DeblurGAN-v2"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "deblur",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "blurry.jpg"
+          ]
+        },
+        "alternatives": [
+          "super_resolution"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 33,
+      "title": "Old Photo Restoration",
+      "slug": "old-photo-restoration",
+      "description": "Remove scratches, repair damaged regions, and restore faded photographs.",
+      "domain": "I",
+      "task_type": "gen",
+      "level": 3,
+      "technologies": [
+        "LaMa",
+        "diffusion-based restoration"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "photo_restoration",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "image": [
+            "old_photo.jpg"
+          ]
+        },
+        "alternatives": [
+          "colorization",
+          "super_resolution"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 34,
+      "title": "Image Super-Resolution",
+      "slug": "image-super-resolution",
+      "description": "Upscale low-resolution images while recovering realistic-looking details.",
+      "domain": "I",
+      "task_type": "gen",
+      "level": 2,
+      "technologies": [
+        "Real-ESRGAN",
+        "SwinIR"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "super_resolution",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "image": [
+            "lowres.jpg"
+          ]
+        },
+        "alternatives": [],
+        "note": null
+      }
+    },
+    {
+      "id": 35,
+      "title": "Intelligent Object Removal",
+      "slug": "intelligent-object-removal",
+      "description": "Remove unwanted objects from photos and reconstruct the missing background.",
+      "domain": "I",
+      "task_type": "gen",
+      "level": 2,
+      "technologies": [
+        "segmentation",
+        "LaMa",
+        "image inpainting"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "object_removal",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "image": [
+            "bus.jpg"
+          ]
+        },
+        "alternatives": [
+          "promptable_segmentation"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 36,
+      "title": "Human Action Recognition",
+      "slug": "human-action-recognition",
+      "description": "Classify activities such as walking, running, jumping, and sitting from video clips.",
+      "domain": "J",
+      "task_type": "track",
+      "level": 3,
+      "technologies": [
+        "SlowFast",
+        "VideoMAE",
+        "3D CNNs"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "action_recognition",
+        "support": "rules",
+        "params": {},
+        "samples": {
+          "media": [
+            "street.mp4"
+          ]
+        },
+        "alternatives": [
+          "pose"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 37,
+      "title": "Football Match Analytics",
+      "slug": "football-match-analytics",
+      "description": "Track players and the ball, estimate movement, and analyze team formations.",
+      "domain": "J",
+      "task_type": "track",
+      "level": 3,
+      "technologies": [
+        "YOLO",
+        "ByteTrack",
+        "homography estimation"
+      ],
+      "is_pick": true,
+      "pick_reason": "Combines detection, tracking, homography geometry and statistics in one system.",
+      "caution": null,
+      "lab": {
+        "pipeline": "football_analytics",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "media": [
+            "zidane.jpg"
+          ]
+        },
+        "alternatives": [
+          "track_count"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 38,
+      "title": "Sign Language Recognition",
+      "slug": "sign-language-recognition",
+      "description": "Recognize hand gestures or sequences of signs and translate them into text.",
+      "domain": "J",
+      "task_type": "pose",
+      "level": 3,
+      "technologies": [
+        "MediaPipe",
+        "CNN-LSTM",
+        "Transformers"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "sign_language",
+        "support": "custom_model",
+        "params": {},
+        "samples": {
+          "media": [
+            "zidane.jpg"
+          ]
+        },
+        "alternatives": [
+          "pose"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 39,
+      "title": "Driver Attention Monitoring",
+      "slug": "driver-attention-monitoring",
+      "description": "Estimate eye closure, gaze direction, and head pose to identify possible drowsiness or distraction.",
+      "domain": "B",
+      "task_type": "pose",
+      "level": 2,
+      "technologies": [
+        "facial landmarks",
+        "CNNs",
+        "temporal analysis"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "driver_attention",
+        "support": "rules",
+        "params": {},
+        "samples": {
+          "media": [
+            "zidane.jpg"
+          ]
+        },
+        "alternatives": [
+          "face_landmarks"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 40,
+      "title": "Video Anomaly Detection",
+      "slug": "video-anomaly-detection",
+      "description": "Identify unusual events in video, such as unexpected movement or activity outside normal patterns.",
+      "domain": "E",
+      "task_type": "track",
+      "level": 3,
+      "technologies": [
+        "autoencoders",
+        "temporal transformers"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "video_anomaly",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "video": [
+            "street.mp4"
+          ]
+        },
+        "alternatives": [
+          "track_count"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 41,
+      "title": "PCB Inspection System",
+      "slug": "pcb-inspection-system",
+      "description": "Inspect printed circuit boards for missing components, solder defects, and misplaced parts.",
+      "domain": "F",
+      "task_type": "det",
+      "level": 2,
+      "technologies": [
+        "YOLO",
+        "template matching",
+        "anomaly detection"
+      ],
+      "is_pick": true,
+      "pick_reason": "Industrial AI with precise defect localization.",
+      "caution": null,
+      "lab": {
+        "pipeline": "golden_template",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "reference": [
+            "pcb_reference.jpg"
+          ],
+          "test": [
+            "pcb_test.jpg"
+          ]
+        },
+        "alternatives": [
+          "open_vocab",
+          "detect"
+        ],
+        "note": "Upload a YOLO26 model trained on PCB defect datasets (e.g. DeepPCB) to use the Detection tab."
+      }
+    },
+    {
+      "id": 42,
+      "title": "Bottle Fill-Level Inspection",
+      "slug": "bottle-fill-level-inspection",
+      "description": "Detect underfilled or overfilled bottles and identify missing caps on production lines.",
+      "domain": "F",
+      "task_type": "det",
+      "level": 1,
+      "technologies": [
+        "YOLO",
+        "image segmentation",
+        "OpenCV"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "fill_level",
+        "support": "rules",
+        "params": {},
+        "samples": {
+          "media": [
+            "bottles.jpg"
+          ]
+        },
+        "alternatives": [
+          "detect"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 43,
+      "title": "Fabric Defect Classification",
+      "slug": "fabric-defect-classification",
+      "description": "Detect holes, broken threads, stains, and weaving defects in textile images.",
+      "domain": "F",
+      "task_type": "cls",
+      "level": 2,
+      "technologies": [
+        "PatchCore",
+        "CNNs",
+        "vision transformers"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "texture_defect",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "fabric.jpg"
+          ]
+        },
+        "alternatives": [
+          "golden_template"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 44,
+      "title": "Weld Defect Detection",
+      "slug": "weld-defect-detection",
+      "description": "Analyze weld images or radiographs to locate cracks, porosity, and other defects.",
+      "domain": "F",
+      "task_type": "det",
+      "level": 2,
+      "technologies": [
+        "YOLO",
+        "U-Net",
+        "object detection"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "open_vocab",
+        "support": "zero_shot",
+        "params": {
+          "prompts": "weld crack, porosity, weld bead, spatter"
+        },
+        "samples": null,
+        "alternatives": [
+          "golden_template",
+          "detect"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 45,
+      "title": "Automatic Package Dimension Measurement",
+      "slug": "automatic-package-dimension-measurement",
+      "description": "Estimate parcel length, width, and height from calibrated camera images.",
+      "domain": "F",
+      "task_type": "3d",
+      "level": 2,
+      "technologies": [
+        "camera calibration",
+        "depth estimation",
+        "geometry"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "object_measurement",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "measure.jpg"
+          ]
+        },
+        "alternatives": [
+          "depth_estimation"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 46,
+      "title": "Visual Self-Checkout System",
+      "slug": "visual-self-checkout-system",
+      "description": "Recognize products placed at checkout and calculate the basket total without manually selecting every item.",
+      "domain": "A",
+      "task_type": "ret",
+      "level": 2,
+      "technologies": [
+        "image classification",
+        "embeddings",
+        "object detection"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "checkout",
+        "support": "ready",
+        "params": {},
+        "samples": null,
+        "alternatives": [
+          "detect"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 47,
+      "title": "Barcode and QR Code Inspection",
+      "slug": "barcode-and-qr-code-inspection",
+      "description": "Detect, decode, and validate barcodes or QR codes, including codes that are rotated or partially damaged.",
+      "domain": "A",
+      "task_type": "ocr",
+      "level": 1,
+      "technologies": [
+        "OpenCV",
+        "pyzbar",
+        "ZXing"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "barcode_reader",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "image": [
+            "codes.jpg"
+          ]
+        },
+        "alternatives": [],
+        "note": null
+      }
+    },
+    {
+      "id": 48,
+      "title": "Table Structure Recognition",
+      "slug": "table-structure-recognition",
+      "description": "Convert tables in scanned documents and PDFs into structured Excel or CSV data.",
+      "domain": "C",
+      "task_type": "ocr",
+      "level": 3,
+      "technologies": [
+        "Table Transformer",
+        "OCR",
+        "layout detection"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "table_extraction",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "image": [
+            "table.jpg"
+          ]
+        },
+        "alternatives": [
+          "ocr_document"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 49,
+      "title": "Handwritten Math Equation Recognition",
+      "slug": "handwritten-math-equation-recognition",
+      "description": "Convert handwritten mathematical expressions into LaTeX or structured equations.",
+      "domain": "C",
+      "task_type": "ocr",
+      "level": 3,
+      "technologies": [
+        "encoder-decoder transformers",
+        "image-to-sequence"
+      ],
+      "is_pick": true,
+      "pick_reason": "OCR combined with sequence modeling, output as LaTeX.",
+      "caution": null,
+      "lab": {
+        "pipeline": "math_ocr",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "image": [
+            "math.jpg"
+          ]
+        },
+        "alternatives": [],
+        "note": null
+      }
+    },
+    {
+      "id": 50,
+      "title": "Smart Document Scanner",
+      "slug": "smart-document-scanner",
+      "description": "Automatically detect document edges, correct perspective, remove shadows, and produce clean scanned pages.",
+      "domain": "C",
+      "task_type": "ocr",
+      "level": 1,
+      "technologies": [
+        "OpenCV",
+        "edge detection",
+        "geometric transforms"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "document_scanner",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "document.jpg"
+          ]
+        },
+        "alternatives": [
+          "ocr_document"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 51,
+      "title": "Automated Waste Sorting",
+      "slug": "automated-waste-sorting",
+      "description": "Identify plastic, paper, glass, and metal waste to support automated recycling.",
+      "domain": "G",
+      "task_type": "det",
+      "level": 2,
+      "technologies": [
+        "YOLO",
+        "classification",
+        "instance segmentation"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "waste_sorting",
+        "support": "zero_shot",
+        "params": {},
+        "samples": null,
+        "alternatives": [
+          "open_vocab"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 52,
+      "title": "Water Pollution and Floating Waste Detection",
+      "slug": "water-pollution-and-floating-waste-detection",
+      "description": "Detect visible floating trash, oil-like surface patterns, and debris in water imagery.",
+      "domain": "G",
+      "task_type": "seg",
+      "level": 2,
+      "technologies": [
+        "segmentation",
+        "object detection",
+        "drone imagery"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "open_vocab",
+        "support": "zero_shot",
+        "params": {
+          "prompts": "floating trash, plastic bottle, plastic bag, oil slick, debris"
+        },
+        "samples": null,
+        "alternatives": [
+          "segment"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 53,
+      "title": "Bridge and Building Crack Analysis",
+      "slug": "bridge-and-building-crack-analysis",
+      "description": "Locate and measure visible cracks in concrete surfaces to support infrastructure inspections.",
+      "domain": "H",
+      "task_type": "seg",
+      "level": 2,
+      "technologies": [
+        "U-Net",
+        "DeepLabV3+",
+        "segmentation"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "crack_analysis",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "crack.jpg"
+          ]
+        },
+        "alternatives": [
+          "open_vocab"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 54,
+      "title": "Early Smoke and Fire Detection",
+      "slug": "early-smoke-and-fire-detection",
+      "description": "Identify visible smoke or flames in camera footage and generate alerts for human review.",
+      "domain": "E",
+      "task_type": "det",
+      "level": 2,
+      "technologies": [
+        "YOLO",
+        "temporal classification",
+        "video analytics"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "open_vocab",
+        "support": "zero_shot",
+        "params": {
+          "prompts": "fire, flame, smoke"
+        },
+        "samples": null,
+        "alternatives": [
+          "video_anomaly"
+        ],
+        "note": "For alarms, confirm detections across several seconds of video and keep a person reviewing alerts."
+      }
+    },
+    {
+      "id": 55,
+      "title": "Crop Field Boundary Detection",
+      "slug": "crop-field-boundary-detection",
+      "description": "Extract agricultural field boundaries from aerial or satellite imagery for mapping and crop monitoring.",
+      "domain": "G",
+      "task_type": "seg",
+      "level": 2,
+      "technologies": [
+        "U-Net",
+        "SegFormer",
+        "geospatial processing"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "field_boundaries",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "aerial.jpg"
+          ]
+        },
+        "alternatives": [
+          "land_cover"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 56,
+      "title": "Text-to-Image Semantic Search",
+      "slug": "text-to-image-semantic-search",
+      "description": "Search a large image collection using natural-language queries such as “a red car parked beside a building.”",
+      "domain": "O",
+      "task_type": "ret",
+      "level": 2,
+      "technologies": [
+        "CLIP",
+        "SigLIP",
+        "vector databases"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "text_image_search",
+        "support": "zero_shot",
+        "params": {
+          "query": "bus"
+        },
+        "samples": {
+          "images": [
+            "gallery/bus.jpg",
+            "gallery/bus_copy_small.jpg",
+            "gallery/bus_brighter.jpg",
+            "gallery/bus_cropped.jpg",
+            "gallery/zidane.jpg",
+            "gallery/zidane_flipped.jpg",
+            "gallery/street_people.jpg",
+            "gallery/leaf.jpg",
+            "gallery/aerial.jpg",
+            "gallery/pcb.jpg",
+            "gallery/document.jpg",
+            "gallery/galaxy.jpg"
+          ]
+        },
+        "alternatives": [
+          "similar_search"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 57,
+      "title": "Visual Question Answering System",
+      "slug": "visual-question-answering-system",
+      "description": "Let users upload an image and ask questions about its contents, relationships, and visible objects.",
+      "domain": "O",
+      "task_type": "vlm",
+      "level": 3,
+      "technologies": [
+        "Qwen2.5-VL",
+        "LLaVA",
+        "vision-language models"
+      ],
+      "is_pick": true,
+      "pick_reason": "Hands-on work with modern vision-language models.",
+      "caution": null,
+      "lab": {
+        "pipeline": "visual_qa",
+        "support": "rules",
+        "params": {},
+        "samples": {
+          "image": [
+            "bus.jpg"
+          ]
+        },
+        "alternatives": [
+          "visual_assistant"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 58,
+      "title": "3D Object Reconstruction from Images",
+      "slug": "3d-object-reconstruction-from-images",
+      "description": "Reconstruct a 3D scene or object from multiple photographs taken at different viewpoints.",
+      "domain": "N",
+      "task_type": "3d",
+      "level": 3,
+      "technologies": [
+        "COLMAP",
+        "Open3D",
+        "NeRF",
+        "Gaussian Splatting"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "reconstruction_3d",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "images": [
+            "view_1.jpg",
+            "view_2.jpg",
+            "view_3.jpg"
+          ]
+        },
+        "alternatives": [
+          "depth_estimation"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 59,
+      "title": "Promptable Image Segmentation Tool",
+      "slug": "promptable-image-segmentation-tool",
+      "description": "Allow users to select an object using a point, box, or text prompt and generate its segmentation mask.",
+      "domain": "O",
+      "task_type": "seg",
+      "level": 2,
+      "technologies": [
+        "SAM 2",
+        "SAM 3",
+        "compatible segmentation models"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "promptable_segmentation",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "image": [
+            "bus.jpg"
+          ]
+        },
+        "alternatives": [
+          "segment",
+          "open_vocab"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 60,
+      "title": "Synthetic Dataset Generation",
+      "slug": "synthetic-dataset-generation",
+      "description": "Generate artificial training images with automatic bounding boxes, segmentation masks, and class labels to reduce manual annotation.",
+      "domain": "O",
+      "task_type": "gen",
+      "level": 3,
+      "technologies": [
+        "BlenderProc",
+        "Unity",
+        "Unreal Engine",
+        "Albumentations"
+      ],
+      "is_pick": true,
+      "pick_reason": "Recommended build: generate labeled data for vehicles, Arabic plates or defects, and reuse it to train YOLO.",
+      "caution": null,
+      "lab": {
+        "pipeline": "dataset_builder",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "images": [
+            "gallery/bus.jpg",
+            "gallery/zidane.jpg",
+            "gallery/street_people.jpg"
+          ]
+        },
+        "alternatives": [
+          "dataset_explorer"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 61,
+      "title": "Facial Landmark Detection",
+      "slug": "facial-landmark-detection",
+      "description": "Detect eyes, eyebrows, nose, and mouth landmarks for facial animation and alignment.",
+      "domain": "K",
+      "task_type": "pose",
+      "level": 1,
+      "technologies": [
+        "MediaPipe",
+        "facial landmark models",
+        "OpenCV"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": "Biometric data is sensitive. Use consent-based datasets, store embeddings securely and check local data-protection law before deploying.",
+      "lab": {
+        "pipeline": "face_landmarks",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "image": [
+            "zidane.jpg"
+          ]
+        },
+        "alternatives": [
+          "pose"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 62,
+      "title": "Face Verification System",
+      "slug": "face-verification-system",
+      "description": "Compare two face images and estimate whether they belong to the same person, with consent and appropriate safeguards.",
+      "domain": "K",
+      "task_type": "ret",
+      "level": 2,
+      "technologies": [
+        "ArcFace",
+        "face embeddings",
+        "cosine similarity"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": "Biometric data is sensitive. Use consent-based datasets, store embeddings securely and check local data-protection law before deploying.",
+      "lab": {
+        "pipeline": "face_verification",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "a": [
+            "zidane.jpg"
+          ],
+          "b": [
+            "gallery/zidane_flipped.jpg"
+          ]
+        },
+        "alternatives": [
+          "face_landmarks"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 63,
+      "title": "Face Presentation-Attack Detection",
+      "slug": "face-presentation-attack-detection",
+      "description": "Distinguish a live face from attempts to fool a camera using printed photos or replayed videos.",
+      "domain": "K",
+      "task_type": "cls",
+      "level": 3,
+      "technologies": [
+        "CNNs",
+        "texture analysis",
+        "temporal models"
+      ],
+      "is_pick": true,
+      "pick_reason": "Best pick for advanced deep learning: robustness to unseen attacks is the hard part.",
+      "caution": "Biometric data is sensitive. Use consent-based datasets, store embeddings securely and check local data-protection law before deploying.",
+      "lab": {
+        "pipeline": "face_liveness",
+        "support": "custom_model",
+        "params": {},
+        "samples": {
+          "image": [
+            "zidane.jpg"
+          ]
+        },
+        "alternatives": [
+          "face_landmarks"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 64,
+      "title": "Palmprint Recognition",
+      "slug": "palmprint-recognition",
+      "description": "Develop a biometric matching system using palm texture and line patterns from a consent-based dataset.",
+      "domain": "K",
+      "task_type": "ret",
+      "level": 3,
+      "technologies": [
+        "CNNs",
+        "feature embeddings",
+        "metric learning"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": "Biometric data is sensitive. Use consent-based datasets, store embeddings securely and check local data-protection law before deploying.",
+      "lab": {
+        "pipeline": "palm_match",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "a": [
+            "palm_a.jpg"
+          ],
+          "b": [
+            "palm_b.jpg"
+          ]
+        },
+        "alternatives": [],
+        "note": null
+      }
+    },
+    {
+      "id": 65,
+      "title": "Gait Analysis and Recognition",
+      "slug": "gait-analysis-and-recognition",
+      "description": "Analyze walking patterns from video for movement research, rehabilitation, or identity research with consent.",
+      "domain": "J",
+      "task_type": "pose",
+      "level": 3,
+      "technologies": [
+        "pose estimation",
+        "temporal CNNs",
+        "skeleton sequences"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": "Biometric data is sensitive. Use consent-based datasets, store embeddings securely and check local data-protection law before deploying.",
+      "lab": {
+        "pipeline": "gait_analysis",
+        "support": "rules",
+        "params": {},
+        "samples": {
+          "video": [
+            "street.mp4"
+          ]
+        },
+        "alternatives": [
+          "pose"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 66,
+      "title": "Clothing Detection and Segmentation",
+      "slug": "clothing-detection-and-segmentation",
+      "description": "Identify shirts, trousers, dresses, shoes, and accessories in photographs.",
+      "domain": "L",
+      "task_type": "seg",
+      "level": 2,
+      "technologies": [
+        "YOLO segmentation",
+        "Mask R-CNN",
+        "fashion datasets"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "clothing_parsing",
+        "support": "zero_shot",
+        "params": {},
+        "samples": {
+          "image": [
+            "zidane.jpg"
+          ]
+        },
+        "alternatives": [
+          "segment"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 67,
+      "title": "Visual Fashion Recommendation",
+      "slug": "visual-fashion-recommendation",
+      "description": "Recommend similar garments based on color, shape, pattern, and learned visual features.",
+      "domain": "L",
+      "task_type": "ret",
+      "level": 2,
+      "technologies": [
+        "CLIP",
+        "image embeddings",
+        "nearest-neighbor search"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "similar_search",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "query": [
+            "zidane.jpg"
+          ],
+          "gallery": [
+            "gallery/bus.jpg",
+            "gallery/bus_copy_small.jpg",
+            "gallery/bus_brighter.jpg",
+            "gallery/bus_cropped.jpg",
+            "gallery/zidane.jpg",
+            "gallery/zidane_flipped.jpg",
+            "gallery/street_people.jpg",
+            "gallery/leaf.jpg",
+            "gallery/aerial.jpg",
+            "gallery/pcb.jpg",
+            "gallery/document.jpg",
+            "gallery/galaxy.jpg"
+          ]
+        },
+        "alternatives": [
+          "clothing_parsing"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 68,
+      "title": "Virtual Clothing Try-On",
+      "slug": "virtual-clothing-try-on",
+      "description": "Generate a preview of how a garment might look on a person using their photo and a product image.",
+      "domain": "L",
+      "task_type": "gen",
+      "level": 3,
+      "technologies": [
+        "pose estimation",
+        "human parsing",
+        "diffusion models"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "virtual_tryon",
+        "support": "rules",
+        "params": {},
+        "samples": {
+          "person": [
+            "bus.jpg"
+          ],
+          "garment": [
+            "garment.jpg"
+          ]
+        },
+        "alternatives": [
+          "pose"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 69,
+      "title": "Footwear Classification and Matching",
+      "slug": "footwear-classification-and-matching",
+      "description": "Classify shoe types and match product images with visually similar footwear.",
+      "domain": "L",
+      "task_type": "cls",
+      "level": 2,
+      "technologies": [
+        "EfficientNet",
+        "metric learning",
+        "CLIP"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "classify",
+        "support": "ready",
+        "params": {
+          "focus": "shoe, boot, sandal, sneaker, loafer, clog"
+        },
+        "samples": null,
+        "alternatives": [
+          "similar_search"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 70,
+      "title": "Furniture Visual Search",
+      "slug": "furniture-visual-search",
+      "description": "Upload a chair, table, or sofa image and retrieve visually similar products from a catalog.",
+      "domain": "L",
+      "task_type": "ret",
+      "level": 2,
+      "technologies": [
+        "image embeddings",
+        "vector databases",
+        "multimodal search"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "similar_search",
+        "support": "ready",
+        "params": {
+          "color_weight": 0.35
+        },
+        "samples": {
+          "query": [
+            "bus.jpg"
+          ],
+          "gallery": [
+            "gallery/bus.jpg",
+            "gallery/bus_copy_small.jpg",
+            "gallery/bus_brighter.jpg",
+            "gallery/bus_cropped.jpg",
+            "gallery/zidane.jpg",
+            "gallery/zidane_flipped.jpg",
+            "gallery/street_people.jpg",
+            "gallery/leaf.jpg",
+            "gallery/aerial.jpg",
+            "gallery/pcb.jpg",
+            "gallery/document.jpg",
+            "gallery/galaxy.jpg"
+          ]
+        },
+        "alternatives": [
+          "open_vocab"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 71,
+      "title": "Building Footprint Extraction",
+      "slug": "building-footprint-extraction",
+      "description": "Automatically outline buildings in aerial images and export their boundaries as GIS polygons.",
+      "domain": "H",
+      "task_type": "seg",
+      "level": 2,
+      "technologies": [
+        "U-Net",
+        "Mask2Former",
+        "GIS",
+        "raster processing"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "building_footprints",
+        "support": "zero_shot",
+        "params": {},
+        "samples": {
+          "image": [
+            "aerial.jpg"
+          ]
+        },
+        "alternatives": [
+          "land_cover",
+          "segment"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 72,
+      "title": "Floor Plan Understanding",
+      "slug": "floor-plan-understanding",
+      "description": "Detect walls, doors, windows, rooms, and furniture in floor plan images.",
+      "domain": "H",
+      "task_type": "det",
+      "level": 3,
+      "technologies": [
+        "object detection",
+        "line detection",
+        "segmentation"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "floor_plan",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "floorplan.jpg"
+          ]
+        },
+        "alternatives": [
+          "open_vocab"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 73,
+      "title": "Solar Panel Defect Inspection",
+      "slug": "solar-panel-defect-inspection",
+      "description": "Analyze visible or thermal images to identify damaged cells, hotspots, and surface defects.",
+      "domain": "F",
+      "task_type": "det",
+      "level": 2,
+      "technologies": [
+        "YOLO",
+        "thermal image analysis",
+        "anomaly detection"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "thermal_hotspots",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "thermal.jpg"
+          ]
+        },
+        "alternatives": [
+          "open_vocab"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 74,
+      "title": "Power Line and Insulator Inspection",
+      "slug": "power-line-and-insulator-inspection",
+      "description": "Detect insulators, damaged components, and visible defects in images captured by inspection cameras or drones.",
+      "domain": "F",
+      "task_type": "det",
+      "level": 2,
+      "technologies": [
+        "YOLO",
+        "segmentation",
+        "aerial imagery"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "open_vocab",
+        "support": "zero_shot",
+        "params": {
+          "prompts": "insulator, power line tower, power line, transformer"
+        },
+        "samples": null,
+        "alternatives": [
+          "detect"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 75,
+      "title": "Analog Meter Reading",
+      "slug": "analog-meter-reading",
+      "description": "Read analog water, electricity, or pressure gauges automatically from camera images.",
+      "domain": "F",
+      "task_type": "ocr",
+      "level": 2,
+      "technologies": [
+        "circle detection",
+        "pointer detection",
+        "OCR"
+      ],
+      "is_pick": true,
+      "pick_reason": "Best commercial-product pick: reading accurately across many gauge designs.",
+      "caution": null,
+      "lab": {
+        "pipeline": "gauge_reader",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "gauge.jpg"
+          ]
+        },
+        "alternatives": [],
+        "note": null
+      }
+    },
+    {
+      "id": 76,
+      "title": "Gesture-Controlled Computer Interface",
+      "slug": "gesture-controlled-computer-interface",
+      "description": "Control a cursor, presentation slides, or media player through predefined hand gestures.",
+      "domain": "J",
+      "task_type": "pose",
+      "level": 1,
+      "technologies": [
+        "MediaPipe Hands",
+        "OpenCV",
+        "gesture classification"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "gesture_control",
+        "support": "rules",
+        "params": {},
+        "samples": {
+          "media": [
+            "zidane.jpg"
+          ]
+        },
+        "alternatives": [
+          "pose"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 77,
+      "title": "Classroom Attendance Analytics",
+      "slug": "classroom-attendance-analytics",
+      "description": "Count classroom occupants and track seat occupancy, or build an opt-in identification workflow for attendance.",
+      "domain": "J",
+      "task_type": "track",
+      "level": 2,
+      "technologies": [
+        "YOLO",
+        "tracking",
+        "occupancy analytics"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": "Biometric data is sensitive. Use consent-based datasets, store embeddings securely and check local data-protection law before deploying.",
+      "lab": {
+        "pipeline": "attendance",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "media": [
+            "bus.jpg"
+          ]
+        },
+        "alternatives": [
+          "track_count"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 78,
+      "title": "AI Visual Assistant for Blind Users",
+      "slug": "ai-visual-assistant-for-blind-users",
+      "description": "Describe surroundings, identify common objects, and read visible text aloud.",
+      "domain": "O",
+      "task_type": "vlm",
+      "level": 3,
+      "technologies": [
+        "object detection",
+        "OCR",
+        "vision-language models",
+        "text-to-speech"
+      ],
+      "is_pick": true,
+      "pick_reason": "Best accessibility pick: joins detection, OCR and a language model.",
+      "caution": null,
+      "lab": {
+        "pipeline": "visual_assistant",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "image": [
+            "bus.jpg"
+          ]
+        },
+        "alternatives": [
+          "visual_qa"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 79,
+      "title": "Smart Whiteboard Capture",
+      "slug": "smart-whiteboard-capture",
+      "description": "Detect a classroom whiteboard, correct its perspective, enhance handwriting, and save notes as images or PDFs.",
+      "domain": "C",
+      "task_type": "ocr",
+      "level": 1,
+      "technologies": [
+        "OpenCV",
+        "document enhancement",
+        "OCR"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "whiteboard_capture",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "image": [
+            "whiteboard.jpg"
+          ]
+        },
+        "alternatives": [
+          "document_scanner"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 80,
+      "title": "Automated Exam Sheet Grading",
+      "slug": "automated-exam-sheet-grading",
+      "description": "Detect answer bubbles on multiple-choice sheets, read selected answers, and compare them against an answer key.",
+      "domain": "C",
+      "task_type": "ocr",
+      "level": 1,
+      "technologies": [
+        "contour detection",
+        "image alignment",
+        "optical mark recognition"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "omr_grading",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "omr.jpg"
+          ]
+        },
+        "alternatives": [],
+        "note": null
+      }
+    },
+    {
+      "id": 81,
+      "title": "Pollen Grain Classification",
+      "slug": "pollen-grain-classification",
+      "description": "Identify and classify pollen types from microscopic images for ecological and botanical research.",
+      "domain": "M",
+      "task_type": "cls",
+      "level": 2,
+      "technologies": [
+        "CNNs",
+        "vision transformers",
+        "image classification"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "particle_analysis",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "particles.jpg"
+          ]
+        },
+        "alternatives": [
+          "classify"
+        ],
+        "note": "Segments and measures grains; naming the pollen type needs a YOLO26 classifier trained on pollen images."
+      }
+    },
+    {
+      "id": 82,
+      "title": "Particle Detection and Size Measurement",
+      "slug": "particle-detection-and-size-measurement",
+      "description": "Detect particles in microscope images and measure their sizes, shapes, and distribution.",
+      "domain": "M",
+      "task_type": "seg",
+      "level": 2,
+      "technologies": [
+        "instance segmentation",
+        "OpenCV",
+        "connected components"
+      ],
+      "is_pick": true,
+      "pick_reason": "Best scientific-research pick: accurate segmentation turned into measurements.",
+      "caution": null,
+      "lab": {
+        "pipeline": "particle_analysis",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "particles.jpg"
+          ]
+        },
+        "alternatives": [
+          "segment"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 83,
+      "title": "Galaxy Morphology Classification",
+      "slug": "galaxy-morphology-classification",
+      "description": "Classify galaxies by their visible shapes and structural characteristics.",
+      "domain": "M",
+      "task_type": "cls",
+      "level": 2,
+      "technologies": [
+        "CNNs",
+        "ResNet",
+        "astronomy image datasets"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "galaxy_morphology",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "galaxy.jpg"
+          ]
+        },
+        "alternatives": [
+          "classify"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 84,
+      "title": "Coral Reef Health Monitoring",
+      "slug": "coral-reef-health-monitoring",
+      "description": "Segment coral, estimate visible bleaching, and monitor changes across underwater images.",
+      "domain": "G",
+      "task_type": "seg",
+      "level": 2,
+      "technologies": [
+        "segmentation",
+        "image classification",
+        "temporal comparison"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "coral_health",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "coral.jpg"
+          ]
+        },
+        "alternatives": [
+          "open_vocab"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 85,
+      "title": "Insect Species Identification",
+      "slug": "insect-species-identification",
+      "description": "Recognize insect species from close-up photographs for biodiversity and agricultural research.",
+      "domain": "M",
+      "task_type": "cls",
+      "level": 2,
+      "technologies": [
+        "fine-grained classification",
+        "transfer learning"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "classify",
+        "support": "ready",
+        "params": {},
+        "samples": null,
+        "alternatives": [
+          "open_vocab"
+        ],
+        "note": "ImageNet covers about 30 common insects; for regional species, train YOLO26-cls on your own photos."
+      }
+    },
+    {
+      "id": 86,
+      "title": "Image Geolocation Estimation",
+      "slug": "image-geolocation-estimation",
+      "description": "Predict a broad geographic region from visual clues such as terrain, architecture, and vegetation.",
+      "domain": "O",
+      "task_type": "ret",
+      "level": 3,
+      "technologies": [
+        "CLIP",
+        "image embeddings",
+        "geographic classification"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "geolocation_clues",
+        "support": "rules",
+        "params": {},
+        "samples": {
+          "image": [
+            "bus.jpg"
+          ]
+        },
+        "alternatives": [],
+        "note": null
+      }
+    },
+    {
+      "id": 87,
+      "title": "Duplicate and Near-Duplicate Image Detection",
+      "slug": "duplicate-and-near-duplicate-image-detection",
+      "description": "Find identical or almost identical images despite resizing, compression, cropping, or minor edits.",
+      "domain": "O",
+      "task_type": "ret",
+      "level": 1,
+      "technologies": [
+        "perceptual hashing",
+        "SSIM",
+        "image embeddings"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "duplicate_finder",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "images": [
+            "gallery/bus.jpg",
+            "gallery/bus_copy_small.jpg",
+            "gallery/bus_brighter.jpg",
+            "gallery/bus_cropped.jpg",
+            "gallery/zidane.jpg",
+            "gallery/zidane_flipped.jpg",
+            "gallery/street_people.jpg",
+            "gallery/leaf.jpg",
+            "gallery/aerial.jpg",
+            "gallery/pcb.jpg",
+            "gallery/document.jpg",
+            "gallery/galaxy.jpg"
+          ]
+        },
+        "alternatives": [
+          "dataset_explorer"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 88,
+      "title": "Black-and-White Image Colorization",
+      "slug": "black-and-white-image-colorization",
+      "description": "Predict plausible colors for grayscale photographs using learned visual context.",
+      "domain": "I",
+      "task_type": "gen",
+      "level": 2,
+      "technologies": [
+        "CNNs",
+        "GANs",
+        "diffusion models"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "colorization",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "image": [
+            "grayscale.jpg"
+          ]
+        },
+        "alternatives": [
+          "photo_restoration"
+        ],
+        "note": null
+      }
+    },
+    {
+      "id": 89,
+      "title": "Image Forgery Detection",
+      "slug": "image-forgery-detection",
+      "description": "Identify possible copy-move manipulation, splicing, and inconsistencies in digital images.",
+      "domain": "O",
+      "task_type": "seg",
+      "level": 3,
+      "technologies": [
+        "CNNs",
+        "forensic feature analysis",
+        "segmentation"
+      ],
+      "is_pick": false,
+      "pick_reason": null,
+      "caution": null,
+      "lab": {
+        "pipeline": "forgery_analysis",
+        "support": "classical",
+        "params": {},
+        "samples": {
+          "image": [
+            "forgery.jpg"
+          ]
+        },
+        "alternatives": [],
+        "note": null
+      }
+    },
+    {
+      "id": 90,
+      "title": "Intelligent Image Dataset Explorer",
+      "slug": "intelligent-image-dataset-explorer",
+      "description": "Build a tool that searches, clusters, labels, and detects outliers in large image datasets automatically.",
+      "domain": "O",
+      "task_type": "ret",
+      "level": 3,
+      "technologies": [
+        "embeddings",
+        "UMAP",
+        "clustering",
+        "vector search",
+        "web dashboard"
+      ],
+      "is_pick": true,
+      "pick_reason": "Best engineering pick: duplicate detection, clustering, embedding search and dataset quality reports for YOLO datasets.",
+      "caution": null,
+      "lab": {
+        "pipeline": "dataset_explorer",
+        "support": "ready",
+        "params": {},
+        "samples": {
+          "images": [
+            "gallery/bus.jpg",
+            "gallery/bus_copy_small.jpg",
+            "gallery/bus_brighter.jpg",
+            "gallery/bus_cropped.jpg",
+            "gallery/zidane.jpg",
+            "gallery/zidane_flipped.jpg",
+            "gallery/street_people.jpg",
+            "gallery/leaf.jpg",
+            "gallery/aerial.jpg",
+            "gallery/pcb.jpg",
+            "gallery/document.jpg",
+            "gallery/galaxy.jpg"
+          ]
+        },
+        "alternatives": [
+          "duplicate_finder",
+          "dataset_builder"
+        ],
+        "note": null
+      }
+    }
+  ],
+  "support_levels": [
+    {
+      "code": "ready",
+      "label": "Ready",
+      "description": "A public model or proven algorithm does this task directly."
+    },
+    {
+      "code": "zero_shot",
+      "label": "Zero-shot",
+      "description": "Works from text prompts without training; fine-tune for production accuracy."
+    },
+    {
+      "code": "rules",
+      "label": "Model + rules",
+      "description": "Public models plus decision logic (angles, timers, zones)."
+    },
+    {
+      "code": "classical",
+      "label": "Classical CV",
+      "description": "Proven OpenCV algorithms; no training needed."
+    },
+    {
+      "code": "baseline",
+      "label": "Baseline",
+      "description": "Works on easy cases; harder cases need a specialized model."
+    },
+    {
+      "code": "custom_model",
+      "label": "Bring your model",
+      "description": "Preprocessing and pipeline ready; upload weights trained on your data for predictions."
+    }
+  ]
+}

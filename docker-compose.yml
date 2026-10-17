@@ -1,0 +1,105 @@
+name: vision-atlas
+
+# Full stack: database + API (with the Vision Lab pipelines) + model server + console.
+#
+#   cp backend/.env.example backend/.env               once; then set JWT_SECRET
+#   docker compose up --build                          everything
+#   docker compose up -d postgres                      just the database
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build   models on an NVIDIA GPU
+#
+# Models on another (GPU) server: run models-serve/docker-compose.yml there,
+# put MODELS_URL=http://<gpu-host>:8500 in a .env next to this file and
+# MODELS_TOKEN in backend/.env, then:  docker compose up -d --scale models=0
+#
+# Host ports are 5432 (Postgres), 8000 (API) and 8080 (console). They are the
+# same ports lost-found publishes by default, so only one of the two stacks can
+# run at a time unless one is remapped.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: atlas
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: atlas
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # No ORM and no Alembic: schema.sql *is* the schema. Postgres runs these
+      # once, on the first boot of an empty volume. seed.sql is the catalog the
+      # app can't work without (90 projects), so unlike lost-found it is
+      # mounted too. Reset with: docker compose down -v
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/002_seed.sql:ro
+      # The rest (queries.sql, ...), readable inside the container for psql by hand.
+      - ./database:/sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atlas -d atlas"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: ./backend/.env
+    environment:
+      # Inside the compose network the database is always postgres:5432,
+      # whatever backend/.env says for running outside Docker.
+      DB_HOST: postgres
+      DB_PORT: 5432
+      POSTGRES_DB: atlas
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: atlas
+      # The models container on the compose network, unless MODELS_URL is
+      # set (in the shell or ./.env) to a model server elsewhere.
+      MODELS_URL: ${MODELS_URL:-http://models:8500}
+    ports:
+      - "8000:8000"
+    volumes:
+      - atlas-data:/data          # uploaded models, uploads, run outputs
+      - ./backend/logs:/app/logs
+    # Let a running pipeline write its result before the container stops.
+    stop_grace_period: 30s
+    # Runs are tracked in this process; one replica only.
+    deploy:
+      replicas: 1
+
+  # Every model (YOLO26, YOLOE-26, SAM 2.1, EasyOCR, Real-ESRGAN, LaMa, MiDaS …)
+  # behind one HTTP API; see models-serve/README.md. No host port: only the api
+  # reaches it. The api doesn't depend_on it, so --scale models=0 works when
+  # the models run on another server.
+  models:
+    build:
+      context: ./models-serve
+    restart: unless-stopped
+    environment:
+      DEVICE: cpu
+      YOLO_SIZE: ${YOLO_SIZE:-n}   # n, s, m, l, x
+      ALLOW_MODEL_DOWNLOADS: "true"
+      MODELS_TOKEN: ${MODELS_TOKEN:-}
+    volumes:
+      - model-weights:/data       # downloaded weights, pushed custom models
+    stop_grace_period: 30s
+
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      # nginx.conf.template proxies /api, /media and the docs here.
+      ATLAS_API_URL: http://api:8000
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
+  atlas-data:
+  model-weights:
