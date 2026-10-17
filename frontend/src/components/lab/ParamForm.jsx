@@ -1,5 +1,22 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
+import Accordion from "@mui/material/Accordion";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import AccordionSummary from "@mui/material/AccordionSummary";
+import Autocomplete from "@mui/material/Autocomplete";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import Chip from "@mui/material/Chip";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import FormHelperText from "@mui/material/FormHelperText";
+import Link from "@mui/material/Link";
+import MenuItem from "@mui/material/MenuItem";
+import Slider from "@mui/material/Slider";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import EditIcon from "@mui/icons-material/Edit";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 export const GEOMETRY = new Set(["line", "polygon", "polygons", "points", "box"]);
 
@@ -12,35 +29,50 @@ function geoSummary(p, v) {
   return "";
 }
 
+const Label = ({ children, htmlFor }) => (
+  <Typography component={htmlFor ? "label" : "span"} htmlFor={htmlFor} variant="body2" sx={{ fontWeight: 600, display: "block", mb: 0.5 }}>
+    {children}
+  </Typography>
+);
+
+const Help = ({ children }) => (children ? <FormHelperText sx={{ mx: 0 }}>{children}</FormHelperText> : null);
+
+/** Short option lists are toggle chips; long ones (e.g. 80 COCO classes) a searchable picker. Empty means all. */
 function MultiSelect({ p, value, onChange }) {
-  const [q, setQ] = useState("");
   const sel = value || [];
-  const many = (p.options || []).length > 12;
-  const opts = (p.options || []).filter((o) => !sel.includes(o) && String(o).toLowerCase().includes(q.toLowerCase()));
-  const toggle = (o) => onChange(sel.includes(o) ? sel.filter((x) => x !== o) : [...sel, o]);
-  if (!many) {
+  const options = p.options || [];
+  if (options.length <= 12) {
+    const toggle = (o) => onChange(sel.includes(o) ? sel.filter((x) => x !== o) : [...sel, o]);
     return (
-      <div className="chipset">
-        {(p.options || []).map((o) => (
-          <button type="button" key={o} className={`chipbtn ${sel.includes(o) ? "on" : ""}`} aria-pressed={sel.includes(o)} onClick={() => toggle(o)}>{o}</button>
+      <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+        {options.map((o) => (
+          <Chip
+            key={o}
+            label={o}
+            size="small"
+            clickable
+            color={sel.includes(o) ? "primary" : "default"}
+            variant={sel.includes(o) ? "filled" : "outlined"}
+            aria-pressed={sel.includes(o)}
+            onClick={() => toggle(o)}
+          />
         ))}
-      </div>
+      </Stack>
     );
   }
   return (
-    <div className="ms">
-      <div className="chipset">
-        {sel.length === 0 && <span className="muted small">All</span>}
-        {sel.map((o) => <button type="button" key={o} className="chipbtn on" onClick={() => toggle(o)} aria-label={`Remove ${o}`}>{o} ×</button>)}
-      </div>
-      <input id={`ms-${p.name}`} type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Add a class…" />
-      {q && (
-        <div className="ms-list">
-          {opts.slice(0, 12).map((o) => <button type="button" key={o} onClick={() => { toggle(o); setQ(""); }}>{o}</button>)}
-          {opts.length === 0 && <span className="muted small">No match</span>}
-        </div>
+    <Autocomplete
+      multiple
+      size="small"
+      options={options}
+      value={sel}
+      onChange={(_, v) => onChange(v)}
+      getOptionLabel={String}
+      filterSelectedOptions
+      renderInput={(params) => (
+        <TextField {...params} id={`ms-${p.name}`} placeholder={sel.length ? "Add a class…" : "All classes · add to narrow"} />
       )}
-    </div>
+    />
   );
 }
 
@@ -48,78 +80,104 @@ function Field({ p, value, onChange, activeGeo, setActiveGeo, hasImage }) {
   const id = `p-${p.name}`;
   if (GEOMETRY.has(p.type)) {
     const active = activeGeo === p.name;
+    const hasValue = value && (Array.isArray(value) ? value.length > 0 : true);
     return (
-      <div className="field geo">
-        <span>{p.label}</span>
-        <div className="row between">
-          <span className="muted small">{geoSummary(p, value)}</span>
-          <div className="row gap8">
-            <button type="button" className={`btn sm ${active ? "primary" : "ghost"}`} disabled={!hasImage}
-              onClick={() => setActiveGeo(active ? null : p.name)}>{active ? "Done drawing" : "Draw on image"}</button>
-            {value && (Array.isArray(value) ? value.length > 0 : true) && (
-              <button type="button" className="btn ghost sm" onClick={() => onChange(Array.isArray(p.default) ? [] : null)}>Clear</button>
+      <Box>
+        <Label>{p.label}</Label>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+          <Typography variant="caption" color="text.secondary">{geoSummary(p, value)}</Typography>
+          <Stack direction="row" spacing={1}>
+            <Button size="small" variant={active ? "contained" : "outlined"} disabled={!hasImage} startIcon={<EditIcon />}
+              onClick={() => setActiveGeo(active ? null : p.name)}>
+              {active ? "Done drawing" : "Draw on image"}
+            </Button>
+            {hasValue && (
+              <Button size="small" color="inherit" onClick={() => onChange(Array.isArray(p.default) ? [] : null)}>Clear</Button>
             )}
-          </div>
-        </div>
-        {p.help && <small className="muted">{p.help}</small>}
-        {!hasImage && <small className="muted">Add an input first, then draw on it.</small>}
-      </div>
+          </Stack>
+        </Stack>
+        <Help>{p.help}</Help>
+        {!hasImage && <Help>Add an input first, then draw on it.</Help>}
+      </Box>
     );
   }
   if (p.type === "bool") {
     return (
-      <label className="check" htmlFor={id}>
-        <input id={id} type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} />
-        <span>{p.label}</span>
-      </label>
+      <Box>
+        <FormControlLabel
+          control={<Checkbox id={id} checked={!!value} onChange={(e) => onChange(e.target.checked)} />}
+          label={<Typography variant="body2" sx={{ fontWeight: 600 }}>{p.label}</Typography>}
+        />
+        <Help>{p.help}</Help>
+      </Box>
     );
   }
   if (p.type === "number" || p.type === "int") {
     const step = p.step ?? (p.type === "int" ? 1 : 0.01);
     const useSlider = p.min !== undefined && p.max !== undefined && Math.abs(p.max - p.min) <= 1e4;
     return (
-      <label className="field" htmlFor={id}>
-        <span>{p.label}</span>
-        <div className="numrow">
-          {useSlider && <input type="range" min={p.min} max={p.max} step={step} value={value ?? p.min} aria-label={p.label}
-            onChange={(e) => onChange(Number(e.target.value))} />}
-          <input id={id} type="number" min={p.min} max={p.max} step={step} value={value ?? ""} onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))} />
-        </div>
-        {p.help && <small className="muted">{p.help}</small>}
-      </label>
+      <Box>
+        <Label htmlFor={id}>{p.label}</Label>
+        <Stack direction="row" spacing={2} alignItems="center">
+          {useSlider && (
+            <Slider size="small" min={p.min} max={p.max} step={step} value={value ?? p.min} aria-label={p.label}
+              onChange={(_, v) => onChange(v)} sx={{ flexGrow: 1 }} />
+          )}
+          <TextField
+            id={id}
+            type="number"
+            size="small"
+            value={value ?? ""}
+            onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
+            inputProps={{ min: p.min, max: p.max, step }}
+            sx={{ width: useSlider ? 104 : "100%", flexShrink: 0 }}
+          />
+        </Stack>
+        <Help>{p.help}</Help>
+      </Box>
     );
   }
   if (p.type === "select") {
     return (
-      <label className="field" htmlFor={id}>
-        <span>{p.label}</span>
-        <select id={id} value={String(value ?? "")} onChange={(e) => {
+      <TextField
+        id={id}
+        select
+        size="small"
+        fullWidth
+        label={p.label}
+        value={String(value ?? "")}
+        onChange={(e) => {
           const o = p.options.find((x) => String(x) === e.target.value);
           onChange(o ?? e.target.value);
-        }}>
-          {p.options.map((o) => <option key={String(o)} value={String(o)}>{String(o)}</option>)}
-        </select>
-        {p.help && <small className="muted">{p.help}</small>}
-      </label>
+        }}
+        helperText={p.help}
+      >
+        {p.options.map((o) => <MenuItem key={String(o)} value={String(o)}>{String(o)}</MenuItem>)}
+      </TextField>
     );
   }
   if (p.type === "multiselect") {
     return (
-      <div className="field">
-        <span>{p.label}</span>
+      <Box>
+        <Label>{p.label}</Label>
         <MultiSelect p={p} value={value} onChange={onChange} />
-        {p.help && <small className="muted">{p.help}</small>}
-      </div>
+        <Help>{p.help}</Help>
+      </Box>
     );
   }
   return (
-    <label className="field" htmlFor={id}>
-      <span>{p.label}</span>
-      {p.type === "textarea"
-        ? <textarea id={id} rows={5} value={value ?? ""} onChange={(e) => onChange(e.target.value)} dir="auto" />
-        : <input id={id} type="text" value={value ?? ""} onChange={(e) => onChange(e.target.value)} dir="auto" />}
-      {p.help && <small className="muted">{p.help}</small>}
-    </label>
+    <TextField
+      id={id}
+      size="small"
+      fullWidth
+      label={p.label}
+      multiline={p.type === "textarea"}
+      minRows={p.type === "textarea" ? 5 : undefined}
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value)}
+      inputProps={{ dir: "auto" }}
+      helperText={p.help}
+    />
   );
 }
 
@@ -129,24 +187,35 @@ export default function ParamForm({ tab, values, setValue, activeGeo, setActiveG
   const field = (p) => <Field key={p.name} p={p} value={values[p.name]} onChange={(v) => setValue(p.name, v)}
     activeGeo={activeGeo} setActiveGeo={setActiveGeo} hasImage={hasImage} />;
   return (
-    <div className="paramform">
+    <Stack spacing={2.25}>
       {tab.custom_task && (
-        <label className="field" htmlFor="p-model">
-          <span>Model</span>
-          <select id="p-model" value={values.model || ""} onChange={(e) => setValue("model", e.target.value || null)}>
-            <option value="">{tab.model_specs?.[0] ? `${tab.model_specs[0].name} (built-in)` : "Built-in"}</option>
-            {tab.custom_models.map((m) => <option key={m.key} value={m.key}>{m.name}{m.public ? " (shared)" : ""}</option>)}
-          </select>
-          <small className="muted">Uses your own {tab.custom_task} weights if you pick them. <Link to="/models">Upload a model</Link></small>
-        </label>
+        <TextField
+          id="p-model"
+          select
+          size="small"
+          fullWidth
+          label="Model"
+          value={values.model || ""}
+          onChange={(e) => setValue("model", e.target.value || null)}
+          SelectProps={{ displayEmpty: true }}
+          InputLabelProps={{ shrink: true }}
+          helperText={<>Uses your own {tab.custom_task} weights if you pick them. <Link component={RouterLink} to="/models">Upload a model</Link></>}
+        >
+          <MenuItem value="">{tab.model_specs?.[0] ? `${tab.model_specs[0].name} (built-in)` : "Built-in"}</MenuItem>
+          {tab.custom_models.map((m) => <MenuItem key={m.key} value={m.key}>{m.name}{m.public ? " (shared)" : ""}</MenuItem>)}
+        </TextField>
       )}
       {basic.map(field)}
       {adv.length > 0 && (
-        <details className="advanced">
-          <summary>Advanced settings</summary>
-          {adv.map(field)}
-        </details>
+        <Accordion variant="outlined" disableGutters sx={{ borderRadius: 2, "&:before": { display: "none" } }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="subtitle2">Advanced settings</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Stack spacing={2.25}>{adv.map(field)}</Stack>
+          </AccordionDetails>
+        </Accordion>
       )}
-    </div>
+    </Stack>
   );
 }

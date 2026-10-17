@@ -1,48 +1,142 @@
 // Small status markers: project status, level, top pick, progress, lab support, run status.
 
-import { STATUS_COLOR, STATUS_LABEL, SUPPORT_LABEL } from "../utils/constants";
+import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
+import Tooltip from "@mui/material/Tooltip";
+import StarIcon from "@mui/icons-material/Star";
+import CheckIcon from "@mui/icons-material/Check";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import RuleIcon from "@mui/icons-material/Rule";
+import TuneIcon from "@mui/icons-material/Tune";
+import ShowChartIcon from "@mui/icons-material/ShowChart";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
 
+import {
+  LEVELS,
+  RUN_STATUS_COLOR,
+  STATUS_COLOR,
+  STATUS_LABEL,
+  SUPPORT_COLOR,
+  SUPPORT_LABEL,
+} from "../utils/constants";
+
+const STATUS_HINT = {
+  idea: "Not started",
+  planned: "On your list",
+  building: "Work in progress",
+  done: "Finished",
+};
+
+const RUN_HINT = {
+  queued: "Waiting for a lab worker",
+  running: "Being analysed now",
+  done: "Finished",
+  error: "Stopped with an error",
+};
+
+/** Three bars, filled up to the level (1 beginner … 3 advanced). */
 export function LevelBars({ level }) {
   return (
-    <span className="lvl" data-l={level} aria-hidden="true">
-      <i></i><i></i><i></i>
-    </span>
+    <Box component="span" aria-hidden="true" sx={{ display: "inline-flex", alignItems: "flex-end", gap: "2px", height: 12 }}>
+      {[1, 2, 3].map((n) => (
+        <Box
+          key={n}
+          component="span"
+          sx={{
+            width: 3,
+            height: 4 + n * 2.5,
+            borderRadius: 1,
+            bgcolor: n <= level ? "primary.main" : "divider",
+          }}
+        />
+      ))}
+    </Box>
   );
 }
 
-export function StatusPill({ status = "idea" }) {
-  return <span className={`pill ${status}`}>{STATUS_LABEL[status]}</span>;
-}
-
-export function RunStatusPill({ status }) {
-  return <span className={`pill ${status === "done" ? "done" : status === "error" ? "err" : "building"}`}>{status}</span>;
-}
-
-export function Star() {
+export function LevelChip({ level, size = "small" }) {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6L2.5 9.4l6.6-.8z" />
-    </svg>
+    <Chip
+      size={size}
+      variant="outlined"
+      label={
+        <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
+          {LEVELS[level]}
+          <LevelBars level={level} />
+        </Box>
+      }
+    />
   );
 }
 
-export function ProgressBar({ counts, total, label }) {
+export function StatusChip({ status = "idea", size = "small", ...props }) {
+  const color = STATUS_COLOR[status] || "default";
   return (
-    <div className="bar" role="img" aria-label={label}>
+    <Tooltip title={STATUS_HINT[status] || ""}>
+      <Chip
+        label={STATUS_LABEL[status]}
+        color={color}
+        size={size}
+        variant={color === "default" ? "outlined" : "filled"}
+        {...props}
+      />
+    </Tooltip>
+  );
+}
+
+export function RunStatusChip({ status, size = "small", ...props }) {
+  const color = RUN_STATUS_COLOR[status] || "default";
+  return (
+    <Tooltip title={RUN_HINT[status] || ""}>
+      <Chip
+        label={status}
+        color={color}
+        size={size}
+        variant={color === "default" ? "outlined" : "filled"}
+        sx={{ textTransform: "capitalize" }}
+        {...props}
+      />
+    </Tooltip>
+  );
+}
+
+export function PickChip({ size = "small", ...props }) {
+  return (
+    <Chip
+      icon={<StarIcon />}
+      label="Top pick"
+      size={size}
+      color="warning"
+      variant="outlined"
+      {...props}
+    />
+  );
+}
+
+/** Stacked done / building / planned bar. */
+export function ProgressBar({ counts, total, label, height = 10 }) {
+  return (
+    <Box
+      role="img"
+      aria-label={label}
+      sx={{ display: "flex", height, borderRadius: 99, overflow: "hidden", bgcolor: "action.hover" }}
+    >
       {["done", "building", "planned"].map((k) =>
-        counts[k] ? <i key={k} style={{ width: `${(counts[k] / total) * 100}%`, background: STATUS_COLOR[k] }} /> : null
+        counts[k] ? (
+          <Box key={k} sx={{ width: `${(counts[k] / total) * 100}%`, bgcolor: `${STATUS_COLOR[k]}.main` }} />
+        ) : null
       )}
-    </div>
+    </Box>
   );
 }
 
 const SUPPORT_ICON = {
-  ready: "M5 12l5 5L20 7",
-  zero_shot: "M4 12h4l3-8 4 16 3-8h2",
-  rules: "M4 6h16M4 12h10M4 18h6",
-  classical: "M12 3v18M3 12h18",
-  baseline: "M4 18h16M7 14l3-3 3 2 4-5",
-  custom_model: "M12 4v12M6 10l6 6 6-6M4 20h16",
+  ready: <CheckIcon />,
+  zero_shot: <AutoAwesomeIcon />,
+  rules: <RuleIcon />,
+  classical: <TuneIcon />,
+  baseline: <ShowChartIcon />,
+  custom_model: <UploadFileIcon />,
 };
 
 /** Lab readiness. `level` is a support-level object from the API or just its code. */
@@ -51,9 +145,15 @@ export function SupportBadge({ level, compact = false }) {
   const code = level.code || level;
   const label = level.label || SUPPORT_LABEL[code];
   return (
-    <span className={`support s-${code} ${compact ? "compact" : ""}`} title={level.description || label}>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={SUPPORT_ICON[code]} /></svg>
-      {label}
-    </span>
+    <Tooltip title={level.description || label}>
+      <Chip
+        icon={SUPPORT_ICON[code]}
+        label={label}
+        size="small"
+        color={SUPPORT_COLOR[code] || "default"}
+        variant={compact ? "outlined" : "filled"}
+        sx={compact ? { height: 22, fontSize: 11.5, "& .MuiChip-icon": { fontSize: 14 } } : undefined}
+      />
+    </Tooltip>
   );
 }

@@ -1,14 +1,55 @@
-import { useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link as RouterLink } from "react-router-dom";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import CardHeader from "@mui/material/CardHeader";
+import Checkbox from "@mui/material/Checkbox";
+import Chip from "@mui/material/Chip";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import IconButton from "@mui/material/IconButton";
+import Link from "@mui/material/Link";
+import Stack from "@mui/material/Stack";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
+import AttachFileIcon from "@mui/icons-material/AttachFile";
+import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import RefreshIcon from "@mui/icons-material/Refresh";
+
 import { models as modelsApi } from "../api/endpoints";
 import { useAuth } from "../auth/AuthContext";
-import { ErrorNote } from "../components/DataStates";
+import ConfirmDialog from "../components/ConfirmDialog";
+import { ErrorState, Loading } from "../components/DataStates";
+import PageHeader from "../components/PageHeader";
 import { useToast } from "../components/Toast";
 import { usePolling } from "../hooks/usePolling";
 import { MODEL_DOWNLOAD_POLL_MS } from "../utils/constants";
 import { formatMegabytes } from "../utils/format";
+import { MONO_FONT } from "../utils/theme";
 
 const isDownloading = (data) => Boolean(data?.builtin.some((b) => b.download_state === "downloading"));
+const mono = { fontFamily: MONO_FONT, fontSize: 12.5 };
+
+function DownloadState({ m }) {
+  if (m.download_state === "downloading") return <Chip size="small" color="warning" label="Downloading…" />;
+  if (m.download_state?.startsWith("error")) {
+    return <Tooltip title={m.download_state}><Chip size="small" color="error" label="Failed" /></Tooltip>;
+  }
+  if (m.loaded) return <Chip size="small" color="success" label="Loaded" />;
+  if (m.downloaded) return <Chip size="small" color="primary" variant="outlined" label="On disk" />;
+  return <Chip size="small" variant="outlined" label="On first use" />;
+}
 
 export default function Models() {
   const { user } = useAuth();
@@ -20,9 +61,9 @@ export default function Models() {
   const [form, setForm] = useState({ name: "", is_public: false });
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [confirm, setConfirm] = useState(null);
-  const fileRef = useRef(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
   const data = models.data;
+  const isAdmin = user?.role === "admin";
 
   async function download(key) {
     try {
@@ -46,7 +87,6 @@ export default function Models() {
       toast(`Uploaded “${m.name}” (${m.task}, ${m.classes.length} classes).`);
       setFile(null);
       setForm({ name: "", is_public: false });
-      if (fileRef.current) fileRef.current.value = "";
       models.reload();
     } catch (err) {
       toast(err.message, "err");
@@ -55,11 +95,12 @@ export default function Models() {
     }
   }
 
-  async function remove(m) {
+  async function confirmDelete() {
+    const m = pendingDelete;
+    setPendingDelete(null);
     try {
       await modelsApi.remove(m.id);
       toast(`Deleted “${m.name}”.`);
-      setConfirm(null);
       models.reload();
     } catch (e) {
       toast(e.message, "err");
@@ -67,111 +108,179 @@ export default function Models() {
   }
 
   return (
-    <div className="wrap">
-      <header className="pagehead">
-        <p className="eyebrow">Vision lab</p>
-        <h1 className="page-title">Models</h1>
-        <p className="lede">Public models download automatically the first time a lab needs them. Upload your own YOLO26 weights to use them in any matching lab.</p>
-      </header>
-      <ErrorNote error={models.error} onRetry={models.reload} />
+    <Box>
+      <PageHeader
+        title="Models"
+        subtitle="Public models download automatically the first time a lab needs them. Upload your own YOLO26 weights to use them in any matching lab."
+        actions={<Button onClick={models.reload} startIcon={<RefreshIcon />}>Refresh</Button>}
+      />
+      <ErrorState error={models.error} onRetry={models.reload} />
+      {!data && !models.error && <Loading label="Loading models…" />}
 
       {data && (
-        <>
-          <section className="sec">
-            <div className="row between wrapline">
-              <h3>Public models</h3>
-              {data.device && (
-                <span className="muted small">Model server device: <code>{data.device}</code>{data.gpu && <> ({data.gpu})</>} · YOLO26 size: <code>{data.yolo_size}</code></span>
+        <Stack spacing={3}>
+          <Card>
+            <CardHeader
+              title="Public models"
+              titleTypographyProps={{ variant: "subtitle1", fontWeight: 700 }}
+              subheaderTypographyProps={{ variant: "body2" }}
+              subheader={data.device && (
+                <>Model server device: <Box component="code" sx={mono}>{data.device}</Box>{data.gpu && <> ({data.gpu})</>} · YOLO26 size: <Box component="code" sx={mono}>{data.yolo_size}</Box></>
               )}
-            </div>
-            {data.model_server_error && <div className="errnote">Model server unavailable: {data.model_server_error}</div>}
-            <div className="tablewrap">
-              <table className="table">
-                <thead><tr><th>Model</th><th>Does</th><th>Source</th><th>License</th><th>Size</th><th>Status</th>{user?.role === "admin" && <th aria-label="Actions" />}</tr></thead>
-                <tbody>
+            />
+            {data.model_server_error && (
+              <Alert severity="warning" sx={{ mx: 2, mb: 2 }}>Model server unavailable: {data.model_server_error}</Alert>
+            )}
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Model</TableCell>
+                    <TableCell>Does</TableCell>
+                    <TableCell>Source</TableCell>
+                    <TableCell>License</TableCell>
+                    <TableCell>Size</TableCell>
+                    <TableCell>Status</TableCell>
+                    {isAdmin && <TableCell align="right">Actions</TableCell>}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                   {data.builtin.map((m) => (
-                    <tr key={m.key}>
-                      <td><b>{m.name}</b>{m.classes && <div className="muted small">{m.classes}</div>}{m.note && <div className="muted small">{m.note}</div>}</td>
-                      <td>{m.task}</td>
-                      <td className="small">{m.source}</td>
-                      <td className="mono">{m.license}</td>
-                      <td className="mono">{m.size_mb ? `${m.size_mb} MB` : "—"}</td>
-                      <td>
-                        {m.download_state === "downloading" ? <span className="pill building">downloading…</span>
-                          : m.download_state?.startsWith("error") ? <span className="pill err" title={m.download_state}>failed</span>
-                          : m.loaded ? <span className="pill done">loaded</span>
-                          : m.downloaded ? <span className="pill planned">on disk</span>
-                          : <span className="pill idea">on first use</span>}
-                      </td>
-                      {user?.role === "admin" && (
-                        <td className="actions">{!m.downloaded && m.download_state !== "downloading" && (
-                          <button className="btn ghost sm" onClick={() => download(m.key)}>Download now</button>
-                        )}</td>
+                    <TableRow key={m.key} hover>
+                      <TableCell sx={{ minWidth: 200 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{m.name}</Typography>
+                        {m.classes && <Typography variant="caption" color="text.secondary" component="div">{m.classes}</Typography>}
+                        {m.note && <Typography variant="caption" color="text.secondary" component="div">{m.note}</Typography>}
+                      </TableCell>
+                      <TableCell>{m.task}</TableCell>
+                      <TableCell><Typography variant="caption" color="text.secondary">{m.source}</Typography></TableCell>
+                      <TableCell sx={mono}>{m.license}</TableCell>
+                      <TableCell sx={{ ...mono, whiteSpace: "nowrap" }}>{m.size_mb ? `${m.size_mb} MB` : "—"}</TableCell>
+                      <TableCell><DownloadState m={m} /></TableCell>
+                      {isAdmin && (
+                        <TableCell align="right">
+                          {!m.downloaded && m.download_state !== "downloading" && (
+                            <Tooltip title="Download now">
+                              <IconButton size="small" onClick={() => download(m.key)} aria-label={`Download ${m.name}`}>
+                                <CloudDownloadIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </TableCell>
                       )}
-                    </tr>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
-            {data.builtin.filter((m) => m.download_state?.startsWith("error")).map((m) => (
-              <div key={m.key} className="errnote">{m.name}: {m.download_state.replace(/^error: /, "")}</div>
-            ))}
-            <p className="muted small">YOLO26 and YOLOE-26 are AGPL-3.0: fine for research and open-source use; commercial closed-source products need an Ultralytics Enterprise license.</p>
-          </section>
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <CardContent sx={{ pt: 1.5 }}>
+              {data.builtin.filter((m) => m.download_state?.startsWith("error")).map((m) => (
+                <Alert key={m.key} severity="error" sx={{ mb: 1 }}>{m.name}: {m.download_state.replace(/^error: /, "")}</Alert>
+              ))}
+              <Typography variant="caption" color="text.secondary">
+                YOLO26 and YOLOE-26 are AGPL-3.0: fine for research and open-source use; commercial closed-source products need an Ultralytics Enterprise license.
+              </Typography>
+            </CardContent>
+          </Card>
 
-          <section className="sec">
-            <h3>Your models</h3>
-            {user ? (
-              <form className="panel form uploadform" onSubmit={upload}>
-                <div className="grid3">
-                  <label className="field" htmlFor="m-file"><span>Weights file (.pt)</span>
-                    <input id="m-file" ref={fileRef} type="file" accept=".pt" onChange={(e) => setFile(e.target.files[0] || null)} />
-                  </label>
-                  <label className="field" htmlFor="m-name"><span>Name</span>
-                    <input id="m-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Saudi plates YOLO26n v3" />
-                  </label>
-                  <div className="field"><span>&nbsp;</span>
-                    <button className="btn primary" disabled={busy}>{busy ? "Checking the file…" : "Upload model"}</button>
-                  </div>
-                </div>
-                {user.role === "admin" && (
-                  <label className="check" htmlFor="m-public"><input id="m-public" type="checkbox" checked={form.is_public}
-                    onChange={(e) => setForm({ ...form, is_public: e.target.checked })} /><span>Share with all users</span></label>
-                )}
-                <p className="muted small">Any Ultralytics model works (YOLO26, YOLO11, YOLOv8: detect, segment, classify, pose or OBB). Train with
-                  <code> yolo detect train data=data.yaml model=yolo26n.pt</code>, then upload <code>runs/detect/train/weights/best.pt</code>.
-                  The lab lets you pick it wherever the task matches.</p>
-              </form>
-            ) : (
-              <p className="muted"><Link to="/login?next=/models">Sign in</Link> to upload your own models.</p>
-            )}
+          <Card>
+            <CardHeader title="Your models" titleTypographyProps={{ variant: "subtitle1", fontWeight: 700 }} />
+            <CardContent sx={{ pt: 0 }}>
+              {user ? (
+                <Box component="form" onSubmit={upload}>
+                  <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ md: "center" }}>
+                    <Button component="label" variant="outlined" startIcon={<AttachFileIcon />} sx={{ flexShrink: 0, maxWidth: { md: 280 } }}>
+                      <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {file ? file.name : "Choose weights (.pt)"}
+                      </Box>
+                      <input hidden type="file" accept=".pt" onChange={(e) => { setFile(e.target.files[0] || null); e.target.value = ""; }} />
+                    </Button>
+                    <TextField
+                      size="small"
+                      label="Name"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="Saudi plates YOLO26n v3"
+                      sx={{ flexGrow: 1 }}
+                    />
+                    {isAdmin && (
+                      <FormControlLabel
+                        control={<Checkbox checked={form.is_public} onChange={(e) => setForm({ ...form, is_public: e.target.checked })} />}
+                        label="Share with all users"
+                        sx={{ flexShrink: 0 }}
+                      />
+                    )}
+                    <Button type="submit" variant="contained" startIcon={<CloudUploadIcon />} disabled={busy} sx={{ flexShrink: 0 }}>
+                      {busy ? "Checking the file…" : "Upload model"}
+                    </Button>
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+                    Any Ultralytics model works (YOLO26, YOLO11, YOLOv8: detect, segment, classify, pose or OBB). Train with{" "}
+                    <Box component="code" sx={mono}>yolo detect train data=data.yaml model=yolo26n.pt</Box>, then upload{" "}
+                    <Box component="code" sx={mono}>runs/detect/train/weights/best.pt</Box>. The lab lets you pick it wherever the task matches.
+                  </Typography>
+                </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  <Link component={RouterLink} to="/login?next=/models">Sign in</Link> to upload your own models.
+                </Typography>
+              )}
+            </CardContent>
             {data.custom.length > 0 && (
-              <div className="tablewrap" style={{ marginTop: 14 }}>
-                <table className="table">
-                  <thead><tr><th>Name</th><th>Task</th><th>Classes</th><th>Size</th><th>Shared</th><th aria-label="Actions" /></tr></thead>
-                  <tbody>
+              <TableContainer sx={{ borderTop: 1, borderColor: "divider" }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Task</TableCell>
+                      <TableCell>Classes</TableCell>
+                      <TableCell>Size</TableCell>
+                      <TableCell>Shared</TableCell>
+                      <TableCell align="right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
                     {data.custom.map((m) => (
-                      <tr key={m.id}>
-                        <td><b>{m.name}</b></td>
-                        <td className="mono">{m.task}</td>
-                        <td className="small">{(m.classes || []).slice(0, 8).join(", ")}{m.classes?.length > 8 ? ` +${m.classes.length - 8}` : ""}</td>
-                        <td className="mono">{formatMegabytes(m.size_bytes)}</td>
-                        <td>{m.is_public ? "yes" : "no"}</td>
-                        <td className="actions">
-                          {(m.owner_id === user?.id || user?.role === "admin") && (confirm === m.id ? (
-                            <><span className="small">Delete?</span><button className="btn danger sm" onClick={() => remove(m)}>Delete</button>
-                              <button className="btn ghost sm" onClick={() => setConfirm(null)}>Cancel</button></>
-                          ) : <button className="btn ghost sm" onClick={() => setConfirm(m.id)}>Delete</button>)}
-                        </td>
-                      </tr>
+                      <TableRow key={m.id} hover>
+                        <TableCell sx={{ fontWeight: 600 }}>{m.name}</TableCell>
+                        <TableCell sx={mono}>{m.task}</TableCell>
+                        <TableCell>
+                          <Typography variant="caption" color="text.secondary">
+                            {(m.classes || []).slice(0, 8).join(", ")}{m.classes?.length > 8 ? ` +${m.classes.length - 8}` : ""}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ ...mono, whiteSpace: "nowrap" }}>{formatMegabytes(m.size_bytes)}</TableCell>
+                        <TableCell>
+                          <Chip size="small" label={m.is_public ? "Shared" : "Private"} color={m.is_public ? "info" : "default"} variant="outlined" />
+                        </TableCell>
+                        <TableCell align="right">
+                          {(m.owner_id === user?.id || isAdmin) && (
+                            <Tooltip title="Delete model">
+                              <IconButton size="small" color="error" onClick={() => setPendingDelete(m)} aria-label={`Delete ${m.name}`}>
+                                <DeleteOutlineIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </TableBody>
+                </Table>
+              </TableContainer>
             )}
-          </section>
-        </>
+          </Card>
+        </Stack>
       )}
-    </div>
+
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        title="Delete this model?"
+        description={pendingDelete ? `“${pendingDelete.name}” is removed, and labs fall back to the built-in model.` : ""}
+        confirmLabel="Delete"
+        confirmColor="error"
+        onConfirm={confirmDelete}
+        onClose={() => setPendingDelete(null)}
+      />
+    </Box>
   );
 }

@@ -1,7 +1,13 @@
 import { useEffect, useRef } from "react";
+import Box from "@mui/material/Box";
+import Card from "@mui/material/Card";
+import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
 
 /** Drag to rotate, scroll to zoom. points = {xyz: [[x,y,z]...], rgb: [[r,g,b]...]} */
 export default function PointCloud({ points }) {
+  const theme = useTheme();
+  const bg = theme.palette.mode === "dark" ? "#060a12" : "#16191d";
   const canvas = useRef(null);
   const state = useRef({ yaw: 0.6, pitch: -0.25, zoom: 1, drag: null });
 
@@ -16,7 +22,7 @@ export default function PointCloud({ points }) {
       const { yaw, pitch, zoom } = state.current;
       const w = (c.width = c.clientWidth * devicePixelRatio);
       const h = (c.height = c.clientHeight * devicePixelRatio);
-      ctx.fillStyle = getComputedStyle(c).getPropertyValue("--pc-bg") || "#16191d";
+      ctx.fillStyle = bg;
       ctx.fillRect(0, 0, w, h);
       const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
       const proj = xyz.map(([x, y, z], i) => {
@@ -60,12 +66,15 @@ export default function PointCloud({ points }) {
       c.removeEventListener("wheel", wheel);
       ro.disconnect();
     };
-  }, [points]);
+  }, [points, bg]);
 
   return (
-    <figure className="pointcloud">
-      <canvas ref={canvas} aria-label="3D point cloud, drag to rotate" />
-      <figcaption>{points.xyz.length.toLocaleString()} points · drag to rotate, scroll to zoom</figcaption>
-    </figure>
+    <Card component="figure" sx={{ m: 0, overflow: "hidden" }}>
+      <Box component="canvas" ref={canvas} aria-label="3D point cloud, drag to rotate"
+        sx={{ display: "block", width: "100%", height: { xs: 300, md: 420 }, cursor: "grab", touchAction: "none", bgcolor: bg }} />
+      <Typography component="figcaption" variant="caption" color="text.secondary" sx={{ display: "block", px: 1.5, py: 1 }}>
+        {points.xyz.length.toLocaleString()} points · drag to rotate, scroll to zoom
+      </Typography>
+    </Card>
   );
 }

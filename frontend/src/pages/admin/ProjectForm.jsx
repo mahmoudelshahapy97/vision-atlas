@@ -1,7 +1,20 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import MenuItem from "@mui/material/MenuItem";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+
 import { catalog, projects } from "../../api/endpoints";
-import { ErrorNote } from "../../components/DataStates";
+import { ErrorState } from "../../components/DataStates";
+import PageHeader from "../../components/PageHeader";
 import { useToast } from "../../components/Toast";
 import { useAsync } from "../../hooks/useAsync";
 import { LEVELS } from "../../utils/constants";
@@ -59,58 +72,51 @@ export default function ProjectForm() {
   }
 
   return (
-    <div className="wrap narrow">
-      <p className="small"><Link to="/admin">← Back to admin</Link></p>
-      <ErrorNote error={existing.error} />
-      <form className="panel form" onSubmit={submit}>
-        <h1 className="page-title">{editing ? `Edit project #${pad(id)}` : "New project"}</h1>
-        <label className="field" htmlFor="pf-title"><span>Title</span>
-          <input id="pf-title" required minLength={3} maxLength={200} value={form.title} onChange={set("title")} />
-        </label>
-        <label className="field" htmlFor="pf-desc"><span>Description</span>
-          <textarea id="pf-desc" required minLength={3} rows={3} value={form.description} onChange={set("description")} />
-        </label>
-        <div className="grid3">
-          <label className="field" htmlFor="pf-domain"><span>Domain</span>
-            <select id="pf-domain" required value={form.domain_code} onChange={set("domain_code")}>
-              <option value="">Choose…</option>
-              {(domains.data || []).map((d) => <option key={d.code} value={d.code}>{d.name}</option>)}
-            </select>
-          </label>
-          <label className="field" htmlFor="pf-task"><span>Task type</span>
-            <select id="pf-task" required value={form.task_type_code} onChange={set("task_type_code")}>
-              <option value="">Choose…</option>
-              {(tasks.data || []).map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
-            </select>
-          </label>
-          <label className="field" htmlFor="pf-level"><span>Level</span>
-            <select id="pf-level" value={form.level} onChange={set("level")}>
-              {Object.entries(LEVELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-            </select>
-          </label>
-        </div>
-        <label className="field" htmlFor="pf-tech"><span>Technologies</span>
-          <input id="pf-tech" value={form.technologies} onChange={set("technologies")} placeholder="YOLO, OpenCV, PyTorch" />
-          <small className="muted">Separate with commas.</small>
-        </label>
-        <label className="check" htmlFor="pf-pick">
-          <input id="pf-pick" type="checkbox" checked={form.is_pick} onChange={set("is_pick")} />
-          <span>Mark as a top pick</span>
-        </label>
-        {form.is_pick && (
-          <label className="field" htmlFor="pf-why"><span>Why it is a top pick</span>
-            <textarea id="pf-why" rows={2} value={form.pick_reason} onChange={set("pick_reason")} />
-          </label>
-        )}
-        <label className="field" htmlFor="pf-caution"><span>Caution note (optional)</span>
-          <textarea id="pf-caution" rows={2} value={form.caution} onChange={set("caution")} placeholder="Shown on the project, e.g. for medical or biometric data" />
-        </label>
-        {error && <div className="errnote" role="alert">{error}</div>}
-        <div className="row gap8">
-          <button className="btn primary" disabled={busy}>{busy ? "Saving…" : editing ? "Save changes" : "Create project"}</button>
-          <Link className="btn ghost" to="/admin">Cancel</Link>
-        </div>
-      </form>
-    </div>
+    <Box sx={{ maxWidth: 820 }}>
+      <Button component={RouterLink} to="/admin" startIcon={<ArrowBackIcon />} size="small" sx={{ mb: 2 }}>Back to projects</Button>
+      <PageHeader
+        title={editing ? `Edit project #${pad(id)}` : "New project"}
+        subtitle={editing ? existing.data?.title : "Add a project to the catalog."}
+      />
+      <ErrorState error={existing.error} onRetry={existing.reload} />
+      <Card>
+        <CardContent>
+          <Stack component="form" onSubmit={submit} spacing={2.5}>
+            <TextField label="Title" required inputProps={{ minLength: 3, maxLength: 200 }} value={form.title} onChange={set("title")} fullWidth />
+            <TextField label="Description" required inputProps={{ minLength: 3 }} multiline minRows={3} value={form.description} onChange={set("description")} fullWidth />
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField select label="Domain" required value={form.domain_code} onChange={set("domain_code")} fullWidth>
+                {(domains.data || []).map((d) => <MenuItem key={d.code} value={d.code}>{d.name}</MenuItem>)}
+              </TextField>
+              <TextField select label="Task type" required value={form.task_type_code} onChange={set("task_type_code")} fullWidth>
+                {(tasks.data || []).map((t) => <MenuItem key={t.code} value={t.code}>{t.name}</MenuItem>)}
+              </TextField>
+              <TextField select label="Level" value={form.level} onChange={set("level")} fullWidth>
+                {Object.entries(LEVELS).map(([k, l]) => <MenuItem key={k} value={Number(k)}>{l}</MenuItem>)}
+              </TextField>
+            </Stack>
+            <TextField label="Technologies" value={form.technologies} onChange={set("technologies")} placeholder="YOLO, OpenCV, PyTorch" helperText="Separate with commas." fullWidth />
+            <FormControlLabel control={<Checkbox checked={form.is_pick} onChange={set("is_pick")} />} label="Mark as a top pick" />
+            {form.is_pick && (
+              <TextField label="Why it is a top pick" multiline minRows={2} value={form.pick_reason} onChange={set("pick_reason")} fullWidth />
+            )}
+            <TextField
+              label="Caution note (optional)"
+              multiline
+              minRows={2}
+              value={form.caution}
+              onChange={set("caution")}
+              placeholder="Shown on the project, e.g. for medical or biometric data"
+              fullWidth
+            />
+            {error && <Alert severity="error">{error}</Alert>}
+            <Stack direction="row" spacing={1}>
+              <Button type="submit" variant="contained" disabled={busy}>{busy ? "Saving…" : editing ? "Save changes" : "Create project"}</Button>
+              <Button component={RouterLink} to="/admin" color="inherit">Cancel</Button>
+            </Stack>
+          </Stack>
+        </CardContent>
+      </Card>
+    </Box>
   );
 }

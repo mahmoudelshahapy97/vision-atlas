@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Link as RouterLink, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Link from "@mui/material/Link";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
 
@@ -37,31 +43,36 @@ export default function Login({ mode }) {
   const other = `${isLogin ? "/register" : "/login"}${next !== "/" ? `?next=${encodeURIComponent(next)}` : ""}`;
 
   return (
-    <form className="panel form" onSubmit={submit} noValidate={false}>
-      <h1 className="page-title">{isLogin ? "Sign in" : "Create your account"}</h1>
-      <p className="muted">{isLogin ? "Pick up where you left off on your projects." : "Track project status and keep notes for each of the 90 projects."}</p>
+    <Stack component="form" onSubmit={submit} spacing={2.5}>
+      <div>
+        <Typography variant="h6" component="h1">{isLogin ? "Sign in" : "Create your account"}</Typography>
+        <Typography variant="body2" color="text.secondary">
+          {isLogin ? "Pick up where you left off on your projects." : "Track project status and keep notes for each of the 90 projects."}
+        </Typography>
+      </div>
+      {error && <Alert severity="error">{error}</Alert>}
       {!isLogin && (
-        <label className="field" htmlFor="name">
-          <span>Name</span>
-          <input id="name" required maxLength={120} value={form.name} onChange={set("name")} autoComplete="name" />
-        </label>
+        <TextField label="Name" required inputProps={{ maxLength: 120 }} value={form.name} onChange={set("name")} autoComplete="name" autoFocus fullWidth />
       )}
-      <label className="field" htmlFor="email">
-        <span>Email</span>
-        <input id="email" type="email" required value={form.email} onChange={set("email")} autoComplete="email" />
-      </label>
-      <label className="field" htmlFor="password">
-        <span>Password</span>
-        <input id="password" type="password" required minLength={isLogin ? 1 : 8} value={form.password}
-          onChange={set("password")} autoComplete={isLogin ? "current-password" : "new-password"} />
-        {!isLogin && <small className="muted">At least 8 characters.</small>}
-      </label>
-      {error && <div className="errnote" role="alert">{error}</div>}
-      <button className="btn primary" disabled={busy}>{busy ? "Please wait…" : isLogin ? "Sign in" : "Create account"}</button>
-      <p className="small muted">
+      <TextField label="Email" type="email" required value={form.email} onChange={set("email")} autoComplete="email" autoFocus={isLogin} fullWidth />
+      <TextField
+        label="Password"
+        type="password"
+        required
+        inputProps={{ minLength: isLogin ? 1 : 8 }}
+        value={form.password}
+        onChange={set("password")}
+        autoComplete={isLogin ? "current-password" : "new-password"}
+        helperText={isLogin ? undefined : "At least 8 characters."}
+        fullWidth
+      />
+      <Button type="submit" variant="contained" size="large" disabled={busy} fullWidth>
+        {busy ? "Please wait…" : isLogin ? "Sign in" : "Create account"}
+      </Button>
+      <Typography variant="body2" color="text.secondary" align="center">
         {isLogin ? "New here? " : "Already have an account? "}
-        <Link to={other}>{isLogin ? "Create an account" : "Sign in"}</Link>
-      </p>
-    </form>
+        <Link component={RouterLink} to={other}>{isLogin ? "Create an account" : "Sign in"}</Link>
+      </Typography>
+    </Stack>
   );
 }

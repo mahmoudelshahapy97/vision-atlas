@@ -1,7 +1,7 @@
 import shutil
 from pathlib import Path
 
-from conftest import wait_run
+from conftest import fetch, wait_run
 
 from app.vision.registry import manager
 
@@ -32,7 +32,7 @@ def test_sample_run(client, user_headers):
     texts = [row[1] for row in run["result"]["tables"][0]["rows"]]
     assert "https://example.com/asset/CAM-03" in texts
     img = run["result"]["images"][0]["url"]
-    assert client.get(img).status_code == 200
+    assert fetch(client, img).status_code == 200
 
 
 def test_upload_run_and_param_override(client, user_headers):

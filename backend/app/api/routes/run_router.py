@@ -14,6 +14,7 @@ from app.api.deps import get_current_user, is_admin
 from app.core.config import config
 from app.schemas.lab_schemas import RunResponse, RunSummary
 from app.services.lab_service import FilesBySlot, lab_service
+from app.services.media_service import media_service
 from app.services.model_service import model_service
 from app.services.project_service import project_service
 from app.services.run_service import run_service
@@ -53,7 +54,8 @@ async def _check_model_choice(params: Dict[str, Any], pipe, user: Dict[str, Any]
 async def _stage_inputs(
     public_id: str, uploads: List[Tuple[str, UploadFile]], samples: Dict[str, List[Path]]
 ) -> List[Dict[str, Any]]:
-    """Copy uploads and chosen samples into media/runs/<public_id>/in/."""
+    """Copy uploads and chosen samples into media/runs/<public_id>/in/ (the
+    worker's scratch copy; create_run then uploads them to the object store)."""
     base = runner.run_dir(public_id)
     (base / "in").mkdir(parents=True, exist_ok=True)
     limit = config.max_upload_mb * 1024 * 1024
@@ -134,15 +136,20 @@ async def create_run(request: Request, current_user: Dict[str, Any] = Depends(ge
         except UserError as e:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
         run = await run_service.create_run(public_id, current_user["id"], project_id, name, merged, inputs)
+        # The worker still reads the local copies; they go when the run ends.
+        await media_service.store_run_files(run["id"], run["inputs"], None)
+        if any(i.get("key") for i in run["inputs"]):
+            await run_service.set_inputs(run["id"], run["inputs"])
     except HTTPException:
         runner.delete_files(public_id)
         raise
     except Exception as e:
         runner.delete_files(public_id)
+        await media_service.delete_run_files(public_id)
         logger.error("Error starting a %s run: %s", name, e, exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not start the run.")
     runner.submit(run["id"])
-    return run
+    return await media_service.sign_run(run)
 
 
 async def _own_run(public_id: str, user: Dict[str, Any]) -> Dict[str, Any]:
@@ -154,7 +161,7 @@ async def _own_run(public_id: str, user: Dict[str, Any]) -> Dict[str, Any]:
 
 @router.get("/{public_id}", response_model=RunResponse)
 async def get_run(public_id: str, current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
-    return await _own_run(public_id, current_user)
+    return await media_service.sign_run(await _own_run(public_id, current_user))
 
 
 def _thumbnail(result: Dict[str, Any]) -> Optional[str]:
@@ -169,6 +176,7 @@ async def list_runs(
 ) -> List[Dict[str, Any]]:
     try:
         rows = await run_service.list_for_user(current_user["id"], project_id or None, min(max(limit, 1), 200))
+        await media_service.sign_runs(rows)
     except Exception as e:
         logger.error("Error listing runs: %s", e, exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not list your runs.")
@@ -186,6 +194,7 @@ async def delete_run(public_id: str, current_user: Dict[str, Any] = Depends(get_
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This run is still in progress.")
     try:
         runner.delete_files(run["public_id"])
+        await media_service.delete_run_files(run["public_id"])
         await run_service.delete_run(run["id"])
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     except Exception as e:

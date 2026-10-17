@@ -83,3 +83,8 @@ export async function api(path, { method = "GET", body, params, signal } = {}) {
 export async function apiForm(path, formData) {
   return send(API_BASE + path, { method: "POST", headers: authHeaders(), body: formData });
 }
+
+/** GET outside the /api prefix, for routes FastAPI mounts on the app root (/health). */
+export async function rootGet(path, { signal } = {}) {
+  return send(API_ORIGIN + path, { signal });
+}

@@ -129,7 +129,24 @@ async def wait_for_schema(timeout: float = 60.0) -> bool:
 # schema.sql only runs on the first boot of an empty volume, so a column added
 # to it later never reaches an existing database. Each statement here must be
 # idempotent: it runs on every start.
-SCHEMA_UPGRADES: tuple = ()
+SCHEMA_UPGRADES: tuple = (
+    """
+    CREATE TABLE IF NOT EXISTS media_object (
+        id              SERIAL PRIMARY KEY,
+        run_id          INTEGER NOT NULL REFERENCES inference_run (id) ON DELETE CASCADE,
+        bucket          TEXT NOT NULL,
+        object_key      TEXT NOT NULL UNIQUE,      -- runs/<public_id>/out/03-mask.png
+        name            TEXT NOT NULL,             -- file name shown to the user
+        kind            TEXT NOT NULL CHECK (kind IN ('image', 'video', 'document')),
+        content_type    TEXT NOT NULL,
+        size_bytes      BIGINT NOT NULL DEFAULT 0,
+        url             TEXT NOT NULL,             -- presigned GET link
+        url_expires_at  TIMESTAMPTZ NOT NULL,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_media_object_run ON media_object (run_id);",
+)
 
 
 async def ensure_schema_upgrades() -> None:

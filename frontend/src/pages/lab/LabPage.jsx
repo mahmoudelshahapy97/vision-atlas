@@ -1,18 +1,40 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link as RouterLink, useParams } from "react-router-dom";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Breadcrumbs from "@mui/material/Breadcrumbs";
+import Button from "@mui/material/Button";
+import ButtonBase from "@mui/material/ButtonBase";
+import Card from "@mui/material/Card";
+import CardHeader from "@mui/material/CardHeader";
+import Grid from "@mui/material/Grid2";
+import Link from "@mui/material/Link";
+import List from "@mui/material/List";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemText from "@mui/material/ListItemText";
+import Skeleton from "@mui/material/Skeleton";
+import Stack from "@mui/material/Stack";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
+import Typography from "@mui/material/Typography";
+import { alpha } from "@mui/material/styles";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import ScienceIcon from "@mui/icons-material/Science";
 import { mediaUrl } from "../../api/client";
 import { lab as labApi, runs as runsApi } from "../../api/endpoints";
 import { useAuth } from "../../auth/AuthContext";
-import { EmptyState, ErrorNote } from "../../components/DataStates";
+import { EmptyState, ErrorState } from "../../components/DataStates";
 import CanvasEditor from "../../components/lab/CanvasEditor";
 import ParamForm, { GEOMETRY } from "../../components/lab/ParamForm";
 import ResultView from "../../components/lab/ResultView";
-import { RunStatusPill, SupportBadge } from "../../components/StatusChips";
+import { RunStatusChip, SupportBadge } from "../../components/StatusChips";
 import { useToast } from "../../components/Toast";
 import { useAsync } from "../../hooks/useAsync";
 import { usePolling } from "../../hooks/usePolling";
 import { RUN_POLL_MS, isRunActive } from "../../utils/constants";
 import { formatDateTime, pad } from "../../utils/format";
+import { MONO_FONT } from "../../utils/theme";
 
 const IMG = /\.(jpe?g|png|bmp|webp|tiff?)$/i;
 const VID = /\.(mp4|mov|avi|mkv|webm|m4v|mpe?g)$/i;
@@ -57,36 +79,53 @@ function SlotInput({ slot, items, setItems, samples }) {
   };
   const useSample = () => setItems(samples.map((s) => ({ sample: s.path, name: s.name, kind: kindOf(s.name), url: mediaUrl(s.url), poster: s.poster && mediaUrl(s.poster) })));
   return (
-    <div className="slot">
-      <div className="row between">
-        <span className="slot-label">{slot.label}{slot.optional ? " (optional)" : ""}</span>
-        {samples?.length > 0 && <button type="button" className="linkbtn" onClick={useSample}>Use sample</button>}
-      </div>
-      <div className={`drop ${over ? "over" : ""}`}
+    <Box>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.75 }}>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>{slot.label}{slot.optional ? " (optional)" : ""}</Typography>
+        {samples?.length > 0 && <Button size="small" onClick={useSample}>Use sample</Button>}
+      </Stack>
+      <Box
         onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
-        onDrop={(e) => { e.preventDefault(); setOver(false); add(e.dataTransfer.files); }}>
+        onDrop={(e) => { e.preventDefault(); setOver(false); add(e.dataTransfer.files); }}
+        sx={{
+          border: "1.5px dashed",
+          borderColor: over ? "primary.main" : "divider",
+          borderRadius: 2,
+          bgcolor: (t) => (over ? alpha(t.palette.primary.main, 0.08) : "background.default"),
+          transition: "border-color .15s, background-color .15s",
+        }}
+      >
         {items.length === 0 ? (
-          <button type="button" className="dropbtn" onClick={() => ref.current?.click()}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 16V4M6 10l6-6 6 6M4 20h16" /></svg>
-            <span>Drop {many ? "files" : slot.kind === "video" ? "a video" : slot.kind === "media" ? "an image or video" : "an image"} here, or browse</span>
-          </button>
+          <ButtonBase
+            onClick={() => ref.current?.click()}
+            sx={{ width: "100%", py: 3, px: 1.5, borderRadius: 2, display: "flex", flexDirection: "column", gap: 0.75, color: "text.secondary" }}
+          >
+            <CloudUploadIcon />
+            <Typography variant="body2">
+              Drop {many ? "files" : slot.kind === "video" ? "a video" : slot.kind === "media" ? "an image or video" : "an image"} here, or browse
+            </Typography>
+          </ButtonBase>
         ) : (
-          <div className="previews">
-            {items.map((it, i) => (
-              <div key={i} className="prev">
-                {it.kind === "video" ? <video src={it.url} poster={it.poster} muted playsInline /> : <img src={it.url} alt={it.name} />}
-                <span title={it.name}>{it.sample ? "sample · " : ""}{it.name}</span>
-              </div>
-            ))}
-            <div className="row gap8">
-              <button type="button" className="btn ghost sm" onClick={() => ref.current?.click()}>{many ? "Add / replace" : "Replace"}</button>
-              <button type="button" className="btn ghost sm" onClick={() => setItems([])}>Clear</button>
-            </div>
-          </div>
+          <Box sx={{ p: 1 }}>
+            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+              {items.map((it, i) => (
+                <Box key={i} sx={{ width: 104, "& img, & video": { width: 104, height: 78, objectFit: "cover", borderRadius: 1.5, display: "block", bgcolor: "action.hover" } }}>
+                  {it.kind === "video" ? <video src={it.url} poster={it.poster} muted playsInline /> : <img src={it.url} alt={it.name} />}
+                  <Typography variant="caption" color="text.secondary" noWrap title={it.name} component="div" sx={{ mt: 0.25 }}>
+                    {it.sample ? "sample · " : ""}{it.name}
+                  </Typography>
+                </Box>
+              ))}
+            </Stack>
+            <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+              <Button size="small" variant="outlined" onClick={() => ref.current?.click()}>{many ? "Add / replace" : "Replace"}</Button>
+              <Button size="small" color="inherit" onClick={() => setItems([])}>Clear</Button>
+            </Stack>
+          </Box>
         )}
         <input ref={ref} type="file" hidden multiple={many} accept={accept[slot.kind]} onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
 
@@ -177,81 +216,135 @@ export default function LabPage() {
 
   const missing = tab?.slots.filter((s) => !s.optional && (inputs[s.name]?.length || 0) < s.min).map((s) => s.label) || [];
 
-  if (lab.error) return <div className="wrap narrow"><ErrorNote error={lab.error} onRetry={lab.reload} /><Link to="/">Back to the catalog</Link></div>;
-  if (!data) return <div className="wrap"><div className="card skeleton" style={{ height: 300 }} /></div>;
+  if (lab.error) {
+    return (
+      <Box>
+        <ErrorState error={lab.error} onRetry={lab.reload} />
+        <Button component={RouterLink} to="/">Back to the catalog</Button>
+      </Box>
+    );
+  }
+  if (!data) {
+    return (
+      <Box>
+        <Skeleton width={220} />
+        <Skeleton variant="rounded" height={40} sx={{ my: 1, maxWidth: 520 }} />
+        <Grid container spacing={3} sx={{ mt: 2 }}>
+          <Grid size={{ xs: 12, md: 5, lg: 4 }}><Skeleton variant="rounded" height={420} /></Grid>
+          <Grid size={{ xs: 12, md: 7, lg: 8 }}><Skeleton variant="rounded" height={300} /></Grid>
+        </Grid>
+      </Box>
+    );
+  }
 
   return (
-    <div className="wrap lab">
-      <header className="labhead">
-        <p className="eyebrow"><Link to={`/projects/${data.project.id}`}>#{pad(data.project.id)} · {data.project.domain}</Link></p>
-        <h1 className="page-title">{data.project.title}</h1>
-        <div className="row gap8 wrapline">
+    <Box>
+      <Box component="header" sx={{ mb: 2.5 }}>
+        <Breadcrumbs sx={{ mb: 0.75, "& .MuiBreadcrumbs-li": { fontSize: 13 } }}>
+          <Link component={RouterLink} to="/" underline="hover" color="inherit">Catalog</Link>
+          <Link component={RouterLink} to={`/projects/${data.project.id}`} underline="hover" color="inherit">
+            <Box component="span" sx={{ fontFamily: MONO_FONT }}>#{pad(data.project.id)}</Box> · {data.project.domain}
+          </Link>
+          <Typography color="text.primary" sx={{ fontSize: 13 }}>Lab</Typography>
+        </Breadcrumbs>
+        <Typography variant="h5" component="h1">{data.project.title}</Typography>
+        <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
           <SupportBadge level={data.support} />
-          <span className="muted small">{data.support.description}</span>
-        </div>
-        {data.note && <p className="labnote">{data.note}</p>}
-        {data.project.caution && <div className="note">{data.project.caution}</div>}
-      </header>
+          <Typography variant="body2" color="text.secondary">{data.support.description}</Typography>
+        </Stack>
+        {data.note && <Typography variant="body2" color="text.secondary" sx={{ mt: 1, maxWidth: "75ch" }}>{data.note}</Typography>}
+        {data.project.caution && <Alert severity="warning" sx={{ mt: 1.5 }}>{data.project.caution}</Alert>}
+      </Box>
 
       {data.tabs.length > 1 && (
-        <div className="seg labtabs" role="tablist" aria-label="Pipelines">
-          {data.tabs.map((t, i) => (
-            <button key={t.name} role="tab" aria-selected={i === tabIdx} aria-pressed={i === tabIdx} onClick={() => { setTabIdx(i); setRunId(null); }}>
-              {i === 0 ? "★ " : ""}{t.label}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          value={tabIdx}
+          onChange={(_, i) => { setTabIdx(i); setRunId(null); }}
+          variant="scrollable"
+          scrollButtons="auto"
+          aria-label="Pipelines"
+          sx={{ mb: 2.5, borderBottom: 1, borderColor: "divider" }}
+        >
+          {data.tabs.map((t, i) => <Tab key={t.name} value={i} label={`${i === 0 ? "★ " : ""}${t.label}`} />)}
+        </Tabs>
       )}
 
-      <div className="labgrid">
-        <section className="panel labin" aria-label="Inputs and settings">
-          <p className="muted small">{tab.description}</p>
-          {tab.slots.map((s) => (
-            <SlotInput key={s.name} slot={s} items={inputs[s.name] || []} samples={data.samples?.[s.name]}
-              setItems={(items) => setInputs((x) => ({ ...x, [s.name]: items }))} />
-          ))}
-          {geoParams.length > 0 && bg && (
-            <CanvasEditor src={bg} params={geoParams} values={values} active={activeGeo} onChange={setValue} />
-          )}
-          <ParamForm tab={tab} values={values} setValue={setValue} activeGeo={activeGeo} setActiveGeo={setActiveGeo} hasImage={!!bg} />
-          {user ? (
-            <button className="btn primary runbtn" onClick={submit} disabled={busy || missing.length > 0 || isRunActive(run)}>
-              {busy ? "Uploading…" : isRunActive(run) ? "Running…" : "Run"}
-            </button>
-          ) : (
-            <p className="signin-hint"><Link to={`/login?next=${encodeURIComponent(`/projects/${id}/lab`)}`}>Sign in</Link> to run the lab. Runs are saved to your history.</p>
-          )}
-          {missing.length > 0 && <p className="muted small">Add: {missing.join(", ")}.</p>}
-          {tab.model_specs?.length > 0 && (
-            <p className="muted small models-used">Models: {tab.model_specs.map((m) => `${m.name} (${m.license})`).join(" · ")}</p>
-          )}
-        </section>
+      <Grid container spacing={3} alignItems="flex-start">
+        <Grid size={{ xs: 12, md: 5, lg: 4 }}>
+          <Card
+            component="section"
+            aria-label="Inputs and settings"
+            sx={{ p: 2, position: { md: "sticky" }, top: { md: 88 }, maxHeight: { md: "calc(100vh - 104px)" }, overflowY: { md: "auto" } }}
+          >
+            <Stack spacing={2.25}>
+              <Typography variant="body2" color="text.secondary">{tab.description}</Typography>
+              {tab.slots.map((s) => (
+                <SlotInput key={s.name} slot={s} items={inputs[s.name] || []} samples={data.samples?.[s.name]}
+                  setItems={(items) => setInputs((x) => ({ ...x, [s.name]: items }))} />
+              ))}
+              {geoParams.length > 0 && bg && (
+                <CanvasEditor src={bg} params={geoParams} values={values} active={activeGeo} onChange={setValue} />
+              )}
+              <ParamForm tab={tab} values={values} setValue={setValue} activeGeo={activeGeo} setActiveGeo={setActiveGeo} hasImage={!!bg} />
+              {user ? (
+                <Button variant="contained" size="large" startIcon={<PlayArrowIcon />} onClick={submit}
+                  disabled={busy || missing.length > 0 || isRunActive(run)}>
+                  {busy ? "Uploading…" : isRunActive(run) ? "Running…" : "Run"}
+                </Button>
+              ) : (
+                <Alert severity="info" icon={<ScienceIcon />}>
+                  <Link component={RouterLink} to={`/login?next=${encodeURIComponent(`/projects/${id}/lab`)}`}>Sign in</Link> to run the lab. Runs are saved to your history.
+                </Alert>
+              )}
+              {missing.length > 0 && <Typography variant="caption" color="text.secondary">Add: {missing.join(", ")}.</Typography>}
+              {tab.model_specs?.length > 0 && (
+                <Typography variant="caption" color="text.secondary">
+                  Models: {tab.model_specs.map((m) => `${m.name} (${m.license})`).join(" · ")}
+                </Typography>
+              )}
+            </Stack>
+          </Card>
+        </Grid>
 
-        <section className="labout" aria-label="Results" aria-live="polite">
-          {run ? <ResultView run={run} /> : (
-            <EmptyState title="Results appear here">
-              {data.samples && Object.keys(data.samples).length ? "A sample is loaded. Press Run to try it, or add your own files." : "Add your files and press Run."}
-            </EmptyState>
-          )}
-          {user && history.data?.length > 0 && (
-            <div className="history">
-              <h3>Your recent runs</h3>
-              <div className="histlist">
-                {history.data.map((h) => (
-                  <button key={h.public_id} className={`histitem ${run?.public_id === h.public_id ? "on" : ""}`} onClick={() => openRun(h.public_id)}>
-                    {h.thumbnail ? <img src={mediaUrl(h.thumbnail)} alt="" /> : <span className="nothumb" />}
-                    <span className="histmeta">
-                      <b>{h.summary?.[0] ? `${h.summary[0].label}: ${h.summary[0].value}` : h.status}</b>
-                      <small>{formatDateTime(h.created_at)} · {h.pipeline}</small>
-                    </span>
-                    <RunStatusPill status={h.status} />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
-      </div>
-    </div>
+        <Grid size={{ xs: 12, md: 7, lg: 8 }} component="section" aria-label="Results" aria-live="polite">
+          <Stack spacing={3}>
+            {run ? <ResultView run={run} /> : (
+              <Card sx={{ borderStyle: "dashed" }}>
+                <EmptyState
+                  icon={<ScienceIcon fontSize="inherit" />}
+                  title="Results appear here"
+                  description={data.samples && Object.keys(data.samples).length ? "A sample is loaded. Press Run to try it, or add your own files." : "Add your files and press Run."}
+                />
+              </Card>
+            )}
+            {user && history.data?.length > 0 && (
+              <Card>
+                <CardHeader title="Your recent runs" titleTypographyProps={{ variant: "subtitle2" }} sx={{ pb: 0 }} />
+                <List dense>
+                  {history.data.map((h) => (
+                    <ListItemButton key={h.public_id} selected={run?.public_id === h.public_id} onClick={() => openRun(h.public_id)} sx={{ gap: 1.5 }}>
+                      <Box
+                        sx={{ width: 56, height: 42, flexShrink: 0, borderRadius: 1.5, overflow: "hidden", bgcolor: "action.hover",
+                          "& img": { width: "100%", height: "100%", objectFit: "cover", display: "block" } }}
+                      >
+                        {h.thumbnail && <img src={mediaUrl(h.thumbnail)} alt="" />}
+                      </Box>
+                      <ListItemText
+                        primary={h.summary?.[0] ? `${h.summary[0].label}: ${h.summary[0].value}` : h.status}
+                        secondary={`${formatDateTime(h.created_at)} · ${h.pipeline}`}
+                        primaryTypographyProps={{ fontWeight: 600, noWrap: true }}
+                        secondaryTypographyProps={{ noWrap: true }}
+                        sx={{ minWidth: 0 }}
+                      />
+                      <RunStatusChip status={h.status} />
+                    </ListItemButton>
+                  ))}
+                </List>
+              </Card>
+            )}
+          </Stack>
+        </Grid>
+      </Grid>
+    </Box>
   );
 }

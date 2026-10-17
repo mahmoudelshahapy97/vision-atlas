@@ -14,5 +14,8 @@ bcrypt==4.2.1
 # ===== Database =====
 asyncpg==0.30.0
 
+# ===== Object storage =====
+minio==7.2.20
+
 # Vision Lab packages are in requirements-ml.txt and requirements-latex.txt
 # (torch is installed first, from the CPU or CUDA index; see the Dockerfile).

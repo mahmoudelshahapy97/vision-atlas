@@ -11,9 +11,16 @@ name: vision-atlas
 # put MODELS_URL=http://<gpu-host>:8500 in a .env next to this file and
 # MODELS_TOKEN in backend/.env, then:  docker compose up -d --scale models=0
 #
-# Host ports are 5432 (Postgres), 8000 (API) and 8080 (console). They are the
-# same ports lost-found publishes by default, so only one of the two stacks can
-# run at a time unless one is remapped.
+# Host ports are 5432 (Postgres), 8000 (API), 8080 (console) and 9000/9001
+# (MinIO API/console). They are the same ports lost-found publishes by default,
+# so only one of the two stacks can run at a time unless one is remapped.
+#
+# Images, videos and documents (lab inputs and outputs) are stored in MinIO;
+# Postgres keeps each object's key and presigned link (media_object). Put the
+# MinIO credentials in a .env next to this file (git-ignored):
+#   MINIO_ROOT_USER=atlas
+#   MINIO_ROOT_PASSWORD=<at least 8 characters>
+#   MINIO_PUBLIC_URL=http://<this host>:9000    where browsers reach MinIO
 
 services:
   postgres:
@@ -48,6 +55,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     env_file: ./backend/.env
     environment:
       # Inside the compose network the database is always postgres:5432,
@@ -60,10 +69,18 @@ services:
       # The models container on the compose network, unless MODELS_URL is
       # set (in the shell or ./.env) to a model server elsewhere.
       MODELS_URL: ${MODELS_URL:-http://models:8500}
+      # Object storage (minio service below). Presigned links are signed for
+      # MINIO_PUBLIC_URL, the address browsers use, not minio:9000.
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+      MINIO_BUCKET: ${MINIO_BUCKET:-atlas}
+      MINIO_SECURE: "false"
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
     ports:
       - "8000:8000"
     volumes:
-      - atlas-data:/data          # uploaded models, uploads, run outputs
+      - atlas-data:/data          # uploaded models; scratch for running labs
       - ./backend/logs:/app/logs
     # Let a running pipeline write its result before the container stops.
     stop_grace_period: 30s
@@ -100,6 +117,53 @@ services:
     ports:
       - "8080:80"
 
+  # S3-compatible object storage for lab inputs and outputs (images, videos,
+  # CSV/JSON/text downloads). Inside the network: http://minio:9000. Browsers
+  # load files straight from it through presigned links, so the API port is
+  # published. Web console: http://localhost:${MINIO_CONSOLE_HOST_PORT:-9001},
+  # log in with MINIO_ROOT_USER / MINIO_ROOT_PASSWORD from ./.env.
+  #
+  # MinIO no longer publishes community images, so this is Chainguard's build
+  # from source, pinned by digest (the same one lost-found uses). To update,
+  # pull cgr.dev/chainguard/minio:latest and copy the new digest here.
+  minio:
+    image: cgr.dev/chainguard/minio@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+    ports:
+      - "${MINIO_API_HOST_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_HOST_PORT:-9001}:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      # The image ships mc but no curl/wget; "local" is mc's alias for
+      # http://localhost:9000.
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # One-shot: creates the bucket (private), then exits. Re-running it is harmless.
+  minio-init:
+    image: cgr.dev/chainguard/minio@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        mc alias set atlas http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" &&
+        mc mb --ignore-existing "atlas/$$MINIO_BUCKET"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+      MINIO_BUCKET: ${MINIO_BUCKET:-atlas}
+    restart: "no"
+
 volumes:
   pgdata:
   atlas-data:
+  miniodata:

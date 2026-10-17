@@ -2,7 +2,12 @@
 // function per route. Pages call these instead of building paths themselves.
 // `opts` carries { signal } from useAsync / usePolling.
 
-import { api, apiForm } from "./client";
+import { api, apiForm, rootGet } from "./client";
+
+// /health is mounted on the app root, outside the /api prefix.
+export const health = {
+  live: (opts) => rootGet("/health", opts),
+};
 
 export const auth = {
   me: (opts) => api("/auth/me", opts),
@@ -57,4 +62,4 @@ export const models = {
   remove: (id) => api(`/models/custom/${id}`, { method: "DELETE" }),
 };
 
-export default { auth, catalog, projects, progress, me, lab, runs, models };
+export default { health, auth, catalog, projects, progress, me, lab, runs, models };

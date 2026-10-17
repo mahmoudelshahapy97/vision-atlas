@@ -61,6 +61,12 @@ class RunService:
         """
         return await self.db_manager.execute_query(query, (user_id, project_id, limit), fetch_all=True)
 
+    async def set_inputs(self, run_id: int, inputs: List[Dict[str, Any]]) -> None:
+        """Save inputs after their files moved to the object store (keys and links added)."""
+        await self.db_manager.execute_query(
+            "UPDATE inference_run SET inputs = $2 WHERE id = $1", (run_id, inputs)
+        )
+
     async def delete_run(self, run_id: int) -> int:
         return await self.db_manager.execute_query(
             "DELETE FROM inference_run WHERE id = $1", (run_id,), return_rowcount=True

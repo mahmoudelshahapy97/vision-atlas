@@ -104,6 +104,15 @@ def admin_headers(client):
     return {"Authorization": f"Bearer {_token(client, 'admin@example.com', 'admin-pass-123', register=False)}"}
 
 
+def fetch(client, url, **kw):
+    """GET a file link from a run: a presigned MinIO URL, or /media/... on the API."""
+    if url.startswith("http"):
+        import httpx
+
+        return httpx.get(url, timeout=30, **kw)
+    return client.get(url, **kw)
+
+
 def wait_run(client, headers, public_id, timeout=600):
     """Poll a run until it finishes."""
     t0 = time.time()

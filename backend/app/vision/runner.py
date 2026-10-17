@@ -4,6 +4,10 @@ Pipelines are synchronous (OpenCV, PyTorch), so they run in worker threads. The
 database is async (asyncpg on the API's event loop), so every write a worker
 makes goes back to that loop through run_coroutine_threadsafe; the threads
 never open their own connections.
+
+Pipelines read and write files in MEDIA_DIR/runs/<public_id>/. When a run ends
+its outputs are uploaded to the object store and that folder is removed; files
+that could not be uploaded stay there and are served at /media.
 """
 from __future__ import annotations
 
@@ -17,6 +21,8 @@ from pathlib import Path
 from typing import Any, Coroutine, Optional
 
 from ..core.config import config
+from ..services.media_service import all_stored, media_service
+from ..services.object_store import object_store
 from ..services.run_service import run_service
 from . import pipelines  # noqa: F401  (registers pipelines)
 from .core import PIPELINES, Ctx, InputFile, UserError
@@ -102,11 +108,21 @@ def _execute(run_id: int) -> None:
     except Exception as e:  # unexpected: log the trace, show a short message
         log.error("Run %s (%s) failed:\n%s", run["public_id"], run["pipeline"], traceback.format_exc())
         status, error = "error", f"Processing failed: {type(e).__name__}: {e}"
+    duration_ms = int((time.time() - started) * 1000)
+    if result is not None:
+        try:
+            _on_loop(media_service.store_run_files(run_id, None, result))
+        except Exception:
+            log.error("Run %s: storing its outputs failed:\n%s", run["public_id"], traceback.format_exc())
     try:
-        _on_loop(run_service.finish(run_id, status, result, error, int((time.time() - started) * 1000)))
+        _on_loop(run_service.finish(run_id, status, result, error, duration_ms))
     except Exception:
         log.error("Run %s finished but its result could not be saved:\n%s", run["public_id"], traceback.format_exc())
+        return
+    if object_store.enabled and all_stored(run["inputs"], result):
+        delete_files(run["public_id"])
 
 
 def delete_files(public_id: str) -> None:
+    """Remove the run's local folder (its objects are removed by media_service)."""
     shutil.rmtree(run_dir(public_id), ignore_errors=True)

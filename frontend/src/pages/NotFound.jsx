@@ -1,10 +1,15 @@
-import { Link } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
+import Button from "@mui/material/Button";
+import SearchOffIcon from "@mui/icons-material/SearchOff";
+import { EmptyState } from "../components/DataStates";
 
 export default function NotFound() {
   return (
-    <div className="wrap narrow">
-      <h1 className="page-title">Page not found</h1>
-      <p><Link to="/">Back to the catalog</Link></p>
-    </div>
+    <EmptyState
+      icon={<SearchOffIcon fontSize="inherit" />}
+      title="Page not found"
+      description="The link may be old, or the page was moved."
+      action={<Button component={RouterLink} to="/" variant="contained">Back to the catalog</Button>}
+    />
   );
 }

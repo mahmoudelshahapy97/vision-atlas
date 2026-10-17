@@ -22,6 +22,7 @@ from app.core.database import (
     wait_for_schema,
 )
 from app.core.logging_config import setup_logging
+from app.services.object_store import object_store
 from app.services.run_service import run_service
 from app.services.user_service import user_service
 from app.vision import runner
@@ -68,6 +69,13 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("Schema not ready; bootstrap admin and run recovery were skipped.")
 
+    if not object_store.enabled:
+        logger.info("Object store disabled (MINIO_ENDPOINT is empty); run files stay in %s.", config.media_dir)
+    elif await object_store.healthy():
+        logger.info("Object store ready: MinIO %s, bucket %s.", config.minio_endpoint, object_store.bucket)
+    else:
+        logger.warning("MinIO at %s is unreachable; run files stay on disk until it is back.", config.minio_endpoint)
+
     runner.start(asyncio.get_running_loop())
     logger.info("Startup complete.")
     yield
@@ -112,12 +120,13 @@ async def add_security_headers(request: Request, call_next):
 
 @app.get("/health", tags=["system"])
 async def health_check():
-    """Health probe with database and model-server diagnostics (used by the
-    container healthcheck). The model server being down doesn't make the API
-    unhealthy: the catalog and run history still work."""
+    """Health probe with database, model-server and object-store diagnostics
+    (used by the container healthcheck). The model server or MinIO being down
+    doesn't make the API unhealthy: the catalog and run history still work."""
     pool = get_pool()
     db_healthy = await check_postgres_health()
     models = await run_in_threadpool(manager.health)
+    store_ok = await object_store.healthy() if object_store.enabled else False
 
     pool_stats = None
     if pool is not None and not pool._closed:
@@ -139,6 +148,11 @@ async def health_check():
             "device": (models or {}).get("device"),
             "gpu": (models or {}).get("gpu"),
         },
+        "object_store": {
+            "backend": "minio" if object_store.enabled else "disk",
+            "bucket": object_store.bucket if object_store.enabled else None,
+            "ok": store_ok,
+        },
         "lab_workers": config.lab_workers,
     }
 
@@ -155,8 +169,9 @@ async def api_health():
 
 app.include_router(router)
 
-# Run inputs/outputs and lab samples are plain files; the URLs inside run
-# results ("/media/runs/...") and lab samples ("/api/lab/samples/...") point here.
+# Lab samples are plain files ("/api/lab/samples/..."). Run files are in MinIO
+# behind presigned links; /media serves the ones kept on disk (MinIO off or
+# unreachable when the run ended, and runs from before MinIO).
 config.media_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/media", StaticFiles(directory=config.media_dir), name="media")
 app.mount(f"{config.app_api_prefix}/lab/samples", StaticFiles(directory=SAMPLES_DIR), name="samples")

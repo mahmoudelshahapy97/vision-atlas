@@ -155,8 +155,9 @@ CREATE INDEX IF NOT EXISTS idx_ml_model_public ON ml_model (task) WHERE is_publi
 -- ---------------------------------------------------------------------------
 -- inference_run — one Vision Lab run: its inputs, settings, progress and results
 --
--- Files live under MEDIA_DIR/runs/<public_id>/ (in/ and out/); the JSON here
--- only refers to them by relative path and /media URL.
+-- Files are stored in MinIO under runs/<public_id>/ (in/ and out/), one
+-- media_object row each. Without MinIO they stay under MEDIA_DIR/runs/<public_id>/
+-- and the JSON refers to them by /media URL.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS inference_run (
     id           SERIAL PRIMARY KEY,
@@ -180,6 +181,29 @@ CREATE INDEX IF NOT EXISTS idx_run_user_time ON inference_run (user_id, created_
 CREATE INDEX IF NOT EXISTS idx_run_project   ON inference_run (project_id);
 -- Startup recovery and the per-user in-flight limit both look for these.
 CREATE INDEX IF NOT EXISTS idx_run_in_flight ON inference_run (user_id) WHERE status IN ('queued', 'running');
+
+-- ---------------------------------------------------------------------------
+-- media_object — an image, video or document of a run, stored in MinIO
+--
+-- url is a presigned GET link (at most 7 days). The API re-signs a link that
+-- is about to expire when it returns the run, and saves the new one here. The
+-- run's inputs/result JSON carry the same key and link.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS media_object (
+    id              SERIAL PRIMARY KEY,
+    run_id          INTEGER NOT NULL REFERENCES inference_run (id) ON DELETE CASCADE,
+    bucket          TEXT NOT NULL,
+    object_key      TEXT NOT NULL UNIQUE,      -- runs/<public_id>/out/03-mask.png
+    name            TEXT NOT NULL,             -- file name shown to the user
+    kind            TEXT NOT NULL CHECK (kind IN ('image', 'video', 'document')),
+    content_type    TEXT NOT NULL,
+    size_bytes      BIGINT NOT NULL DEFAULT 0,
+    url             TEXT NOT NULL,             -- presigned GET link
+    url_expires_at  TIMESTAMPTZ NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_media_object_run ON media_object (run_id);
 
 COMMIT;
 

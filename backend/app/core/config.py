@@ -105,7 +105,7 @@ class Settings(BaseSettings):
     # =========================================================================
     # VISION LAB
     # =========================================================================
-    media_dir: Path = BACKEND_DIR / "media"  # uploads and run outputs (served at /media)
+    media_dir: Path = BACKEND_DIR / "media"  # scratch for running labs; fallback storage when MinIO is off (served at /media)
     weights_dir: Path = BACKEND_DIR / "weights"  # uploaded model weights + YuNet/SFace copied from models-serve
     lab_workers: int = 2  # runs processed in parallel (one process, thread pool)
     max_upload_mb: int = 200
@@ -121,6 +121,24 @@ class Settings(BaseSettings):
     models_url: str = "http://localhost:8500"
     models_token: str = ""  # must match MODELS_TOKEN on models-serve
     models_timeout: float = 600.0  # seconds; a model's first use may download it
+
+
+    # =========================================================================
+    # OBJECT STORAGE (MinIO)
+    # =========================================================================
+    # Lab inputs and outputs (images, videos, documents) go to MinIO; Postgres
+    # keeps each object's key and presigned link (media_object). Empty
+    # endpoint: files stay under media_dir and are served at /media.
+    minio_endpoint: str = ""  # host:port the API connects to (minio:9000 in compose)
+    minio_access_key: str = ""
+    minio_secret_key: str = ""
+    minio_bucket: str = "atlas"
+    minio_secure: bool = False
+    # Where browsers reach MinIO; presigned links are signed for this host.
+    # Empty: the same as minio_endpoint.
+    minio_public_url: str = ""
+    minio_region: str = "us-east-1"  # fixed so signing never asks the server
+    minio_url_expire_hours: int = 168  # presigned link lifetime; S3 allows at most 7 days
 
 
 config = Settings()

@@ -19,7 +19,7 @@ const ProjectList = lazy(() => import("../pages/admin/ProjectList"));
 const ProjectForm = lazy(() => import("../pages/admin/ProjectForm"));
 const NotFound = lazy(() => import("../pages/NotFound"));
 
-export default function AppRouter() {
+export default function AppRouter({ mode, onToggleMode }) {
   const { ready } = useAuth();
   if (!ready) return <Loading />;
 
@@ -27,7 +27,12 @@ export default function AppRouter() {
     <BrowserRouter>
       <Suspense fallback={<Loading />}>
         <Routes>
-          <Route element={<AppLayout />}>
+          <Route element={<AuthLayout />}>
+            <Route path="/login" element={<Login mode="login" />} />
+            <Route path="/register" element={<Login mode="register" />} />
+          </Route>
+
+          <Route element={<AppLayout mode={mode} onToggleMode={onToggleMode} />}>
             <Route path="/" element={<Catalog />}>
               <Route path="projects/:id" element={<ProjectDrawer />} />
             </Route>
@@ -38,11 +43,6 @@ export default function AppRouter() {
               <Route path=":publicId" element={<RequireAuth><RunDetail /></RequireAuth>} />
             </Route>
             <Route path="/board" element={<RequireAuth><Board /></RequireAuth>} />
-
-            <Route element={<AuthLayout />}>
-              <Route path="/login" element={<Login mode="login" />} />
-              <Route path="/register" element={<Login mode="register" />} />
-            </Route>
 
             <Route path="/admin">
               <Route index element={<RequireAuth minimum="admin"><ProjectList /></RequireAuth>} />

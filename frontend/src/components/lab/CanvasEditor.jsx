@@ -1,4 +1,32 @@
 import { useEffect, useRef, useState } from "react";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import { alpha } from "@mui/material/styles";
+import { MONO_FONT } from "../../utils/theme";
+
+// Drawn geometry is amber on every theme: it sits on photos, not on the page.
+const GEO = "#f59e0b";
+
+const stageSx = (editing) => ({
+  position: "relative",
+  borderRadius: 2,
+  overflow: "hidden",
+  bgcolor: "action.hover",
+  lineHeight: 0,
+  border: 1,
+  borderColor: editing ? GEO : "divider",
+  "& img": { width: "100%", display: "block", userSelect: "none" },
+  "& svg": { position: "absolute", inset: 0, width: "100%", height: "100%", touchAction: "none", cursor: editing ? "crosshair" : "default" },
+  "& .geo, & .geo-active": { fill: alpha(GEO, 0.18), stroke: GEO, strokeWidth: 3, vectorEffect: "non-scaling-stroke" },
+  "& .geo": { opacity: 0.75 },
+  "& line, & polyline": { fill: "none" },
+  "& circle": { fill: GEO, stroke: "#fff", strokeWidth: 2, vectorEffect: "non-scaling-stroke" },
+  "& text": { fill: "#fff", stroke: "#000", strokeWidth: "3px", paintOrder: "stroke", font: `700 28px ${MONO_FONT}` },
+  "& .pt-pos": { fill: "#22c55e" },
+  "& .pt-neg": { fill: "#ef4444" },
+});
 
 /** Shows the input image with drawn geometry params; edits the active one. Coordinates are normalized 0..1. */
 export default function CanvasEditor({ src, params, values, active, onChange }) {
@@ -62,17 +90,25 @@ export default function CanvasEditor({ src, params, values, active, onChange }) 
   }[ap.type];
 
   return (
-    <div className={`canvas-editor ${ap ? "editing" : ""}`}>
+    <Stack spacing={1}>
       {ap && (
-        <div className="editbar">
-          <span><b>{ap.label}:</b> {hint}</span>
-          <div className="row gap8">
-            {ap.type === "polygons" && <button type="button" className="btn primary sm" onClick={finishPoly} disabled={draft.length < 3}>Finish shape</button>}
-            {ap.type !== "box" && <button type="button" className="btn ghost sm" onClick={undo}>Undo</button>}
-          </div>
-        </div>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          spacing={1}
+          useFlexGap
+          flexWrap="wrap"
+          sx={{ px: 1.25, py: 1, borderRadius: 2, bgcolor: alpha(GEO, 0.12) }}
+        >
+          <Typography variant="body2"><b>{ap.label}:</b> {hint}</Typography>
+          <Stack direction="row" spacing={1}>
+            {ap.type === "polygons" && <Button size="small" variant="contained" onClick={finishPoly} disabled={draft.length < 3}>Finish shape</Button>}
+            {ap.type !== "box" && <Button size="small" color="inherit" onClick={undo}>Undo</Button>}
+          </Stack>
+        </Stack>
       )}
-      <div className="stage">
+      <Box sx={stageSx(Boolean(ap))}>
         <img src={src} alt="Input" onLoad={(e) => setSize({ w: e.target.naturalWidth, h: e.target.naturalHeight })} draggable={false} />
         <svg ref={svg} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" onClick={onClick} onContextMenu={onContext}
           onPointerDown={down} onPointerMove={move} onPointerUp={up}>
@@ -114,7 +150,7 @@ export default function CanvasEditor({ src, params, values, active, onChange }) 
             return <rect className="geo-active" x={Math.min(a[0], b[0])} y={Math.min(a[1], b[1])} width={Math.abs(a[0] - b[0])} height={Math.abs(a[1] - b[1])} />;
           })()}
         </svg>
-      </div>
-    </div>
+      </Box>
+    </Stack>
   );
 }

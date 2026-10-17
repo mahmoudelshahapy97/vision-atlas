@@ -8,7 +8,8 @@ export const STATUSES = [
   ["done", "Done"],
 ];
 export const STATUS_LABEL = Object.fromEntries(STATUSES);
-export const STATUS_COLOR = { planned: "var(--accent)", building: "var(--build)", done: "var(--done)", idea: "var(--line)" };
+// MUI palette keys ("default" is the neutral outlined chip).
+export const STATUS_COLOR = { idea: "default", planned: "primary", building: "warning", done: "success" };
 
 export const LEVELS = { 1: "Beginner", 2: "Intermediate", 3: "Advanced" };
 
@@ -21,11 +22,20 @@ export const SUPPORT_LABEL = {
   baseline: "Baseline",
   custom_model: "Bring your model",
 };
+export const SUPPORT_COLOR = {
+  ready: "success",
+  zero_shot: "secondary",
+  rules: "primary",
+  classical: "info",
+  baseline: "warning",
+  custom_model: "error",
+};
 // Catalog filter order.
 export const SUPPORT_FILTERS = [["", "Any"], ["ready", "Ready"], ["classical", "Classical CV"], ["zero_shot", "Zero-shot"],
   ["rules", "Model + rules"], ["baseline", "Baseline"], ["custom_model", "Bring your model"]];
 
 export const RUN_ACTIVE = new Set(["queued", "running"]);
+export const RUN_STATUS_COLOR = { queued: "default", running: "warning", done: "success", error: "error" };
 export const isRunActive = (run) => Boolean(run) && RUN_ACTIVE.has(run.status);
 
 // Lab polling intervals.
