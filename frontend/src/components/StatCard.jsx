@@ -33,6 +33,7 @@ export function StatCard({ label, value, hint, icon, color = "primary", dense = 
                 flexShrink: 0,
                 bgcolor: (t) => `${t.palette[color].main}1f`,
                 color: `${color}.main`,
+                boxShadow: (t) => (t.palette.mode === "dark" ? `0 0 18px -6px ${t.palette[color].main}` : "none"),
               }}
             >
               {icon}

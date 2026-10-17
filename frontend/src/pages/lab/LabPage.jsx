@@ -89,9 +89,15 @@ function SlotInput({ slot, items, setItems, samples }) {
         onDrop={(e) => { e.preventDefault(); setOver(false); add(e.dataTransfer.files); }}
         sx={{
           border: "1.5px dashed",
-          borderColor: over ? "primary.main" : "divider",
+          borderColor: (t) =>
+            over ? t.palette.primary.main : t.palette.mode === "dark" ? "rgba(255, 255, 255, 0.16)" : t.palette.divider,
           borderRadius: 2,
-          bgcolor: (t) => (over ? alpha(t.palette.primary.main, 0.08) : "background.default"),
+          bgcolor: (t) =>
+            over
+              ? alpha(t.palette.primary.main, 0.08)
+              : t.palette.mode === "dark"
+                ? "rgba(7, 10, 17, 0.55)"
+                : t.palette.background.default,
           transition: "border-color .15s, background-color .15s",
         }}
       >

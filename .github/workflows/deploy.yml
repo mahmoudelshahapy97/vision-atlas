@@ -1,0 +1,211 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - name: Check deploy secrets
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST_FINGERPRINT: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          missing=()
+          for v in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_HOST_FINGERPRINT DEPLOY_PATH; do
+            [ -n "${!v}" ] || missing+=("$v")
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing repository secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Deploy to EC2 over SSH
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+          envs: DEPLOY_PATH,SHA
+          # A rebuild of the models image (torch) can take a long time.
+          command_timeout: 60m
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+            # The models image is ~3.4 GB (CPU) and far more with CUDA, plus
+            # build cache next to the old image.
+            MIN_FREE_GB=15
+            API_URL=http://localhost:8000/health
+            WEB_URL=http://localhost:8080/
+
+            free_gb() { df --output=avail -BG / | tail -1 | tr -dc 0-9; }
+            image() { echo "vision-atlas-$1"; }
+
+            # A GPU server puts COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml
+            # in .env (compose reads it). With MODELS_URL set there, the models
+            # run on another server and the local models service stays at 0.
+            MODELS_URL=$(grep -E '^MODELS_URL=' .env | cut -d= -f2- | tr -d '"' || true)
+            if [ -n "$MODELS_URL" ]; then
+              SERVICES="api web"
+              UP_ARGS="--scale models=0"
+            else
+              SERVICES="api models web"
+              UP_ARGS=""
+            fi
+
+            OLD=$(git rev-parse HEAD)
+            git fetch --prune origin
+            # .env files are git-ignored, so the reset leaves them alone. Work
+            # made by hand on the server is kept in a stash and a branch.
+            STAMP=$(date +%Y%m%d-%H%M%S)
+            G="git -c user.name=deploy -c user.email=deploy@localhost"
+            if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+              $G stash push -m "pre-deploy $STAMP"
+              echo "WARNING: uncommitted server changes are in git stash list (pre-deploy $STAMP)"
+            fi
+            if [ -n "$(git rev-list "$SHA..HEAD")" ]; then
+              git branch "server-backup-$STAMP" HEAD
+              echo "WARNING: server commits not in $SHA are on branch server-backup-$STAMP"
+            fi
+            git reset --hard "$SHA"
+            echo "Deploying $OLD -> $(git rev-parse HEAD)"
+
+            # Code is baked into the images (COPY . .), so a service is rebuilt
+            # when anything under its directory changed, or its image is missing.
+            changed=$(git diff --name-only "$OLD" HEAD)
+            rebuild=""
+            for svc in $SERVICES; do
+              case $svc in
+                api) dir=backend ;;
+                models) dir=models-serve ;;
+                web) dir=frontend ;;
+              esac
+              if ! docker image inspect "$(image "$svc")" >/dev/null 2>&1 \
+                || printf "%s\n" "$changed" | grep -qE "^($dir/|docker-compose(\.gpu)?\.yml$)"; then
+                rebuild="$rebuild $svc"
+              fi
+            done
+            if printf "%s\n" "$changed" | grep -qxE 'database/(schema|seed)\.sql'; then
+              echo "::warning::database/schema.sql or seed.sql changed. Postgres applies them only to an empty volume; add the change to SCHEMA_UPGRADES in backend/app/core/database.py for existing data."
+            fi
+
+            healthy() {
+              # The API waits for Postgres and MinIO; the models take a while too.
+              for _ in $(seq 1 60); do
+                curl -fsS -o /dev/null "$API_URL" && curl -fsS -o /dev/null "$WEB_URL" && return 0
+                sleep 5
+              done
+              return 1
+            }
+
+            rollback() {
+              echo "ERROR: $1, rolling back to $OLD"
+              df -h /
+              docker compose logs --tail 100 $SERVICES || true
+              git reset --hard "$OLD"
+              for svc in $rebuild; do
+                docker image inspect "$(image "$svc"):previous" >/dev/null 2>&1 \
+                  && docker tag "$(image "$svc"):previous" "$(image "$svc")"
+              done
+              docker compose up -d --no-build --remove-orphans $UP_ARGS || true
+              healthy || echo "ERROR: rollback is not healthy either"
+            }
+
+            echo "==> Docker cleanup"
+            docker container prune -f
+            docker image prune -f
+            docker builder prune -f --filter until=168h
+            df -h /
+
+            if [ -n "$rebuild" ]; then
+              echo "==> Rebuilding:$rebuild"
+              if [ "$(free_gb)" -lt "$MIN_FREE_GB" ]; then
+                docker builder prune -af
+              fi
+              if [ "$(free_gb)" -lt "$MIN_FREE_GB" ]; then
+                echo "ERROR: only $(free_gb)G free on /, need ${MIN_FREE_GB}G to rebuild; nothing changed"
+                git reset --hard "$OLD"
+                exit 1
+              fi
+              for svc in $rebuild; do
+                docker image inspect "$(image "$svc")" >/dev/null 2>&1 \
+                  && docker tag "$(image "$svc")" "$(image "$svc"):previous"
+              done
+              # Running containers keep the old images until `up` below.
+              if ! docker compose build $rebuild; then
+                echo "ERROR: build failed; running containers untouched"
+                df -h /
+                git reset --hard "$OLD"
+                for svc in $rebuild; do
+                  docker image inspect "$(image "$svc"):previous" >/dev/null 2>&1 \
+                    && docker tag "$(image "$svc"):previous" "$(image "$svc")"
+                done
+                exit 1
+              fi
+            else
+              echo "==> No image inputs changed: no rebuild"
+            fi
+
+            # Recreates only the services whose image or config changed.
+            # A failed `up` must roll back too, not just exit under set -e.
+            echo "==> Start stack"
+            if ! docker compose up -d --no-build --remove-orphans $UP_ARGS; then
+              rollback "docker compose up failed"
+              exit 1
+            fi
+
+            echo "==> Health check $API_URL $WEB_URL"
+            if ! healthy; then
+              rollback "not healthy"
+              exit 1
+            fi
+
+            # :previous only exists to roll back within this deploy.
+            for svc in $rebuild; do
+              docker image rm "$(image "$svc"):previous" 2>/dev/null || true
+            done
+            docker image prune -f
+            docker builder prune -f --filter until=168h
+            df -h /
+            echo "Deployed $(git rev-parse --short HEAD)"
+
+      # Set the repository variable PUBLIC_HEALTH_URL (e.g.
+      # https://<domain>/api/health) to also check through the load balancer.
+      - name: Health check through the load balancer
+        if: vars.PUBLIC_HEALTH_URL != ''
+        env:
+          PUBLIC_HEALTH_URL: ${{ vars.PUBLIC_HEALTH_URL }}
+        run: |
+          for _ in $(seq 1 30); do
+            if body=$(curl -fsS -m 10 "$PUBLIC_HEALTH_URL"); then
+              echo "$body"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "ERROR: $PUBLIC_HEALTH_URL not healthy" >&2
+          exit 1

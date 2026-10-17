@@ -97,12 +97,22 @@ function BackendStatus() {
         color={dbDown || modelsDown ? "warning" : "success"}
         variant={dbDown || modelsDown ? "filled" : "outlined"}
         label={label}
+        icon={
+          dbDown || modelsDown ? undefined : (
+            <Box
+              component="span"
+              className="pulse-indicator"
+              sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: "success.main", ml: "8px !important" }}
+            />
+          )
+        }
       />
     </Tooltip>
   );
 }
 
 function Brand() {
+  const theme = useTheme();
   return (
     <Box
       component={RouterLink}
@@ -111,7 +121,7 @@ function Brand() {
     >
       <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
         <path d="M3 10V3h7M22 3h7v7M29 22v7h-7M10 29H3v-7" fill="none" stroke="#f59e0b" strokeWidth="3" />
-        <circle cx="16" cy="16" r="5" fill="#3b82f6" />
+        <circle cx="16" cy="16" r="5" fill={theme.palette.primary.main} />
       </svg>
       <Box>
         <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
@@ -152,13 +162,7 @@ export function AppLayout({ mode, onToggleMode }) {
             subheader={
               <ListSubheader
                 disableSticky
-                sx={{
-                  bgcolor: "transparent",
-                  lineHeight: 2.2,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  fontSize: 11,
-                }}
+                sx={{ bgcolor: "transparent", lineHeight: 2.4 }}
               >
                 {section.heading}
               </ListSubheader>
@@ -178,8 +182,8 @@ export function AppLayout({ mode, onToggleMode }) {
                   // highlight is the router's business rather than state we keep.
                   "&.active": {
                     bgcolor: "action.selected",
-                    color: "primary.main",
-                    "& .MuiListItemIcon-root": { color: "primary.main" },
+                    color: (t) => (t.palette.mode === "dark" ? "#60A5FA" : t.palette.primary.main),
+                    "& .MuiListItemIcon-root": { color: "inherit" },
                   },
                 }}
               >
@@ -233,9 +237,6 @@ export function AppLayout({ mode, onToggleMode }) {
           ml: { md: `${DRAWER_WIDTH}px` },
           borderBottom: 1,
           borderColor: "divider",
-          backdropFilter: "blur(8px)",
-          bgcolor: (t) =>
-            t.palette.mode === "dark" ? "rgba(11,18,32,0.82)" : "rgba(255,255,255,0.86)",
         }}
       >
         <Toolbar>
@@ -276,7 +277,6 @@ export function AppLayout({ mode, onToggleMode }) {
               boxSizing: "border-box",
               borderRight: 1,
               borderColor: "divider",
-              backgroundImage: "none",
             },
           }}
         >
