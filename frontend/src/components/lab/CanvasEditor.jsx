@@ -24,8 +24,8 @@ const stageSx = (editing) => ({
   "& line, & polyline": { fill: "none" },
   "& circle": { fill: GEO, stroke: "#fff", strokeWidth: 2, vectorEffect: "non-scaling-stroke" },
   "& text": { fill: "#fff", stroke: "#000", strokeWidth: "3px", paintOrder: "stroke", font: `700 28px ${MONO_FONT}` },
-  "& .pt-pos": { fill: "#22c55e" },
-  "& .pt-neg": { fill: "#ef4444" },
+  "& .pt-pos": { fill: "#10B981" },
+  "& .pt-neg": { fill: "#F43F5E" },
 });
 
 /** Shows the input image with drawn geometry params; edits the active one. Coordinates are normalized 0..1. */

@@ -1,0 +1,127 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      - name: docker compose config
+        env:
+          MINIO_ROOT_USER: atlas
+          MINIO_ROOT_PASSWORD: ci-password
+          MODELS_TOKEN: ci-token
+        run: |
+          cp backend/.env.example backend/.env
+          : > models-serve/.env
+          docker compose config -q
+          docker compose -f docker-compose.yml -f docker-compose.gpu.yml config -q
+          docker compose -f models-serve/docker-compose.yml config -q
+
+      # The runner's Python 3.12 matches python:3.12-slim in both Dockerfiles.
+      - name: Byte-compile backend and models-serve
+        run: python3 -m compileall -q backend/app models-serve/app
+
+  frontend:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      # Node 22 matches the Dockerfile.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Docker image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: frontend
+          push: false
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+
+  # The lab tests drive real pipelines through the models server, and the
+  # object store tests need MinIO, so this runs the compose stack itself.
+  stack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+
+      # Presigned links must be signed for an address the test container can
+      # reach, so MINIO_PUBLIC_URL is the in-network one.
+      - name: Write CI env files
+        run: |
+          printf '%s\n' MINIO_ROOT_USER=atlas MINIO_ROOT_PASSWORD=ci-password \
+            MINIO_PUBLIC_URL=http://minio:9000 > .env
+          sed 's/^JWT_SECRET=.*/JWT_SECRET="ci-secret"/' backend/.env.example > backend/.env
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Built with the GHA cache and loaded under the names compose gives them,
+      # so `compose up/run` uses these instead of building again. The models
+      # image is ~3.4 GB (CPU torch); without the cache it is the slow part.
+      - name: Build models image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: models-serve
+          load: true
+          tags: vision-atlas-models:latest
+          cache-from: type=gha,scope=models
+          cache-to: type=gha,scope=models
+
+      - name: Build api image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: backend
+          load: true
+          tags: vision-atlas-api:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api
+
+      - name: Start postgres, minio and models
+        run: |
+          docker compose up -d --no-build --wait --wait-timeout 300 postgres minio models
+          docker compose run --rm minio-init
+
+      # Weights download into models-serve/models on first use (yolo26n only;
+      # the slow tests that need the heavier models don't run here).
+      - name: models-serve tests
+        run: |
+          docker compose run --rm --no-deps -v ./models-serve/tests:/app/tests models \
+            sh -c "pip install -q -r requirements-dev.txt && pytest -q"
+
+      - name: Backend tests
+        run: |
+          docker compose run --rm --no-deps \
+            -v ./backend/tests:/app/tests -v ./database:/sql:ro -e SQL_DIR=/sql api \
+            sh -c "pip install -q -r requirements-dev.txt && pytest -q -rs"
+
+      - name: Container logs
+        if: failure()
+        run: docker compose logs --tail 200 postgres minio models
+
+      - name: Stop stack
+        if: always()
+        run: docker compose down -v

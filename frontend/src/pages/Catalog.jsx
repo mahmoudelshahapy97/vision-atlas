@@ -99,7 +99,7 @@ function FilterList({ heading, options, selected, onSelect }) {
       subheader={
         <ListSubheader
           disableSticky
-          sx={{ bgcolor: "transparent", lineHeight: 2.4, textTransform: "uppercase", letterSpacing: "0.08em", fontSize: 11, px: 1 }}
+          sx={{ bgcolor: "transparent", lineHeight: 2.4, px: 1 }}
         >
           {heading}
         </ListSubheader>

@@ -20,7 +20,6 @@ export function AuthLayout() {
         justifyContent: "center",
         gap: 2,
         px: 2,
-        bgcolor: "background.default",
       }}
     >
       <Paper
@@ -31,7 +30,7 @@ export function AuthLayout() {
         <Stack spacing={0.5} alignItems="center" sx={{ mb: 3, textAlign: "center" }}>
           <svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true">
             <path d="M3 10V3h7M22 3h7v7M29 22v7h-7M10 29H3v-7" fill="none" stroke="#f59e0b" strokeWidth="3" />
-            <circle cx="16" cy="16" r="5" fill="#3b82f6" />
+            <Box component="circle" cx="16" cy="16" r="5" sx={{ fill: (t) => t.palette.primary.main }} />
           </svg>
           <Typography variant="h5" sx={{ fontWeight: 800 }}>
             Vision Atlas

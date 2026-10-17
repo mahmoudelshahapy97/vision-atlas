@@ -20,6 +20,7 @@ import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import CloseIcon from "@mui/icons-material/Close";
 import ScienceIcon from "@mui/icons-material/Science";
+import { alpha } from "@mui/material/styles";
 
 import { progress as progressApi, projects as projectsApi } from "../api/endpoints";
 import { useAuth } from "../auth/AuthContext";
@@ -130,7 +131,7 @@ export default function ProjectDrawer() {
         direction="row"
         alignItems="center"
         justifyContent="space-between"
-        sx={{ px: 2.5, py: 1.25, borderBottom: 1, borderColor: "divider", position: "sticky", top: 0, bgcolor: "background.paper", zIndex: 1 }}
+        sx={{ px: 2.5, py: 1.25, borderBottom: 1, borderColor: "divider", position: "sticky", top: 0, bgcolor: "background.paper", backdropFilter: "blur(18px)", zIndex: 1 }}
       >
         {p ? <ProjectTag project={p} /> : <Typography variant="caption" color="text.secondary">Loading…</Typography>}
         <Stack direction="row" spacing={0.5}>
@@ -167,7 +168,7 @@ export default function ProjectDrawer() {
             </Box>
 
             {p.lab && (
-              <Card sx={{ p: 2, bgcolor: (t) => (t.palette.mode === "dark" ? "rgba(59,130,246,0.08)" : "rgba(59,130,246,0.05)"), borderColor: "primary.main" }}>
+              <Card sx={{ p: 2, bgcolor: (t) => alpha(t.palette.primary.main, t.palette.mode === "dark" ? 0.08 : 0.05), borderColor: "primary.main" }}>
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} justifyContent="space-between">
                   <Box>
                     <SupportBadge level={p.lab.support} />

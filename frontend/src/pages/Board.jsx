@@ -104,7 +104,7 @@ export default function Board() {
           {COLUMNS.map((col) => {
             const list = items.filter((p) => p.progress.status === col);
             return (
-              <Card key={col} component="section" sx={{ bgcolor: "background.default" }}>
+              <Card key={col} component="section" sx={{ bgcolor: (t) => (t.palette.mode === "dark" ? "rgba(7, 10, 17, 0.55)" : t.palette.background.default) }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 2, py: 1.5 }}>
                   <StatusChip status={col} />
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>{list.length}</Typography>

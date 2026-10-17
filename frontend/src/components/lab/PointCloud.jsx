@@ -7,7 +7,7 @@ import { useTheme } from "@mui/material/styles";
 /** Drag to rotate, scroll to zoom. points = {xyz: [[x,y,z]...], rgb: [[r,g,b]...]} */
 export default function PointCloud({ points }) {
   const theme = useTheme();
-  const bg = theme.palette.mode === "dark" ? "#060a12" : "#16191d";
+  const bg = theme.palette.mode === "dark" ? "#070A11" : "#16191d";
   const canvas = useRef(null);
   const state = useRef({ yaw: 0.6, pitch: -0.25, zoom: 1, drag: null });
 

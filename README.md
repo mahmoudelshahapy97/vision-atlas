@@ -105,3 +105,34 @@ docker compose run --rm --no-deps -v ./models-serve/tests:/app/tests \
   models sh -c "pip install -q -r requirements-dev.txt && pytest -q"   # model server
 cd frontend && npm run build                                          # console builds
 ```
+
+## CI/CD
+
+GitHub Actions, the same setup as insighteye, Insight-eye and database:
+
+- **`.github/workflows/ci.yml`** runs on every push and pull request. It checks the
+  compose files and byte-compiles the Python. It runs `npm ci` and the Vite build,
+  then builds the web image. It builds the api and models images, cached in GitHub
+  Actions, and runs both test suites above against real Postgres, MinIO and models
+  containers. The slow tests are left out.
+- **`.github/workflows/deploy.yml`** runs on a push to `main` (except `.md`-only
+  changes) and on demand. It runs CI, then connects to the server over SSH and does
+  the following:
+  1. Resets the checkout in `DEPLOY_PATH` to the pushed commit. Server edits are
+     kept in `git stash` or a `server-backup-*` branch.
+  2. Rebuilds only the images whose directory changed (`backend/` → api,
+     `models-serve/` → models, `frontend/` → web, or every image when a compose
+     file changed), then runs `docker compose up -d`.
+  3. Checks `:8000/health` and `:8080/`. If a check fails, it rolls the code and
+     images back to the previous version.
+
+  Repository secrets: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`,
+  `DEPLOY_HOST_FINGERPRINT` and `DEPLOY_PATH`. The optional repository variable
+  `PUBLIC_HEALTH_URL` (e.g. `https://<domain>/api/health`) adds a check through
+  the load balancer.
+
+  On the server, `.env` and `backend/.env` already exist. Put
+  `COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml` in `.env` to use the GPU,
+  or set `MODELS_URL` there to run the models on another host. Deploy then keeps
+  `models` scaled to 0. Changes to `database/schema.sql` reach only a new volume;
+  for existing data, add them to `SCHEMA_UPGRADES` in `backend/app/core/database.py`.
