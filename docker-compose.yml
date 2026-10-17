@@ -85,7 +85,8 @@ services:
       ALLOW_MODEL_DOWNLOADS: "true"
       MODELS_TOKEN: ${MODELS_TOKEN:-}
     volumes:
-      - model-weights:/data       # downloaded weights, pushed custom models
+      # Downloaded weights and pushed custom models, as host files in models-serve/models.
+      - ./models-serve/models:/app/models
     stop_grace_period: 30s
 
   web:
@@ -102,4 +103,3 @@ services:
 volumes:
   pgdata:
   atlas-data:
-  model-weights:

@@ -69,9 +69,9 @@ docker compose up --build
 The api container reads `backend/.env`. Compose overrides `DB_HOST` and
 `DB_PORT` so it reaches the `postgres` service, and sets `MODELS_URL` to the
 `models` container. Uploads, run outputs and uploaded models live in the
-`atlas-data` volume (`/data`). Public model weights live in models-serve's
-`model-weights` volume. The first run of each lab downloads its model (5 MB to
-200 MB) there. To download them ahead of time:
+`atlas-data` volume (`/data`). Public model weights are files in
+`models-serve/models/` on the host. The first run of each lab downloads its
+model (5 MB to 200 MB) there. To download them ahead of time:
 
 ```bash
 docker compose exec models python -m app.download         # core set
@@ -154,7 +154,7 @@ Errors are FastAPI's `{"detail": "..."}`. The console shows the message as-is.
 
 ## Models
 
-All of these are public and run in models-serve. They download automatically the first time a lab needs them, into models-serve's `WEIGHTS_DIR` (the `model-weights` volume in Docker). `DEVICE`, `YOLO_SIZE` and `ALLOW_MODEL_DOWNLOADS` are models-serve settings.
+All of these are public and run in models-serve. They download automatically the first time a lab needs them, into models-serve's `WEIGHTS_DIR` (`models-serve/models/`, also in Docker). `DEVICE`, `YOLO_SIZE` and `ALLOW_MODEL_DOWNLOADS` are models-serve settings.
 
 | Model | Used for | License |
 |---|---|---|

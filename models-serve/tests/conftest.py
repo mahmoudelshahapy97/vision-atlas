@@ -1,12 +1,9 @@
 import os
-import tempfile
-from pathlib import Path
 
 import pytest
 
-# Weights: reuse the container volume when there is one, so tests don't
-# download yolo26n.pt every time.
-os.environ.setdefault("WEIGHTS_DIR", "/data/weights" if Path("/data").is_dir() else str(Path(tempfile.gettempdir()) / "ms-weights"))
+# Weights: WEIGHTS_DIR, else models-serve/models (the same folder the server
+# uses), so tests reuse what's downloaded instead of fetching yolo26n.pt again.
 os.environ["MODELS_TOKEN"] = "test-token"
 os.environ["DEVICE"] = os.environ.get("TEST_DEVICE", "cpu")
 os.environ["PRELOAD"] = "[]"

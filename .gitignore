@@ -37,4 +37,5 @@ docker-compose.override.yml
 # ===== ML / Data =====
 backend/weights/
 backend/media/
-models-serve/weights/
+models-serve/models/*
+!models-serve/models/.gitkeep

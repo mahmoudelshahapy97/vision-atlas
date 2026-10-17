@@ -5,6 +5,7 @@ venv/
 .env
 .pytest_cache/
 tests/
+models/
 weights/
 README.md
 docker-compose*.yml

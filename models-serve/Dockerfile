@@ -26,16 +26,16 @@ RUN pip install -r requirements.txt \
 
 COPY . .
 
-# Downloaded and pushed weights live on the /data volume.
-ENV WEIGHTS_DIR=/data/weights \
+# Downloaded and pushed weights live in /app/models; compose bind-mounts
+# models-serve/models there, so they're plain files on the host.
+ENV WEIGHTS_DIR=/app/models \
     NO_ALBUMENTATIONS_UPDATE=1 \
-    YOLO_CONFIG_DIR=/data/ultralytics
-RUN mkdir -p /data
+    YOLO_CONFIG_DIR=/app/models/.ultralytics
+RUN mkdir -p /app/models
 # LaTeX-OCR (pix2tex) always saves its checkpoints inside its own package.
 # Point those two files at the volume so a rebuild doesn't drop 117 MB of weights.
 RUN ck=$(python -c "import pix2tex, os; print(os.path.join(os.path.dirname(pix2tex.__file__), 'model', 'checkpoints'))") \
     && for f in weights.pth image_resizer.pth; do rm -f "$ck/$f" && ln -s "$WEIGHTS_DIR/pix2tex/$f" "$ck/$f"; done
-VOLUME /data
 
 EXPOSE 8500
 

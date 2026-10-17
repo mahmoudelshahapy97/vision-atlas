@@ -13,7 +13,7 @@ browser ──same origin──> web (Vite / nginx) ──proxy──> api ─�
                                                         │
                                        lab thread pool ─┼─> atlas-data volume (uploads, run outputs, uploaded models)
                                                         │
-                                          model calls ──┴─HTTP─> models (models-serve, CPU or GPU) ──> model-weights volume
+                                          model calls ──┴─HTTP─> models (models-serve, CPU or GPU) ──> models-serve/models/ (host folder)
 ```
 
 | Tier | Directory | Stack |
@@ -54,12 +54,13 @@ run at the same time unless one of them is stopped or remapped.
 
 The schema is `database/schema.sql` and the catalog is `database/seed.sql`.
 Postgres applies both on the first boot of an empty volume. There is no ORM
-and no Alembic. `docker compose down -v` resets everything, including
-downloaded models.
+and no Alembic. `docker compose down -v` resets the database, uploads and
+run outputs.
 
-Before the model server existed, downloaded weights lived in the api's
-`atlas-data` volume. To reuse them instead of downloading again, copy them once:
-`docker run --rm -v vision-atlas_atlas-data:/a:ro -v vision-atlas_model-weights:/b alpine sh -c "mkdir -p /b/weights && cp -a /a/weights/. /b/weights/"`.
+Model weights are plain files in `models-serve/models/` (bind-mounted into the
+`models` container, ignored by git), so they survive `down -v`. Delete files
+there to re-download them. The container writes as root, so new files may need
+`sudo chown -R $USER models-serve/models` before you can remove them by hand.
 
 ## Tests
 

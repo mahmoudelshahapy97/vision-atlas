@@ -58,7 +58,7 @@ refused.
 **Uploaded models** stay owned by the API, which keeps the database row and the file.
 On the first run that uses one, the API sends its sha256. If the file isn't here, the
 API gets a 409, `PUT`s the file and retries. Files are stored by hash in
-`WEIGHTS_DIR/custom/`, so a restart doesn't trigger another upload.
+`models/custom/`, so a restart doesn't trigger another upload.
 
 **Tracking:** each video gets its own model instance on the server, because Ultralytics
 keeps tracker state inside the model. A session is removed when the API's tracker
@@ -75,6 +75,27 @@ everything else.
 - **GPU on the same host:** `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build`
 - **Prefetch weights:** `docker compose exec models python -m app.download` downloads
   the core set; add `--all` for everything.
+
+### Where the models are saved
+
+Everything goes to `models-serve/models/` on the host, in Docker (bind-mounted
+at `/app/models`) and without it:
+
+```
+models-serve/models/
+  yolo26n.pt  yolo26n-seg.pt  yolo26n-pose.pt  yolo26n-cls.pt  yolo26n-obb.pt
+  yoloe-26n-seg.pt  mobileclip2_b.ts  sam2.1_t.pt  alpr_26n.pt  ppe_yolov8m.pt
+  realesr-general-x4v3.pth  big-lama.pt  colorization_release_v2-9b330a0b.pth
+  face_detection_yunet_2023mar.onnx  face_recognition_sface_2021dec.onnx
+  easyocr/  pix2tex/  hub/ + torchhub/ (MiDaS)  custom/<sha256>.pt (uploaded models)
+  .ultralytics/ (Ultralytics settings)
+```
+
+The folder is ignored by git. To move the models to a GPU server, copy the folder
+along with the code, or let that server download them again. For an air-gapped
+host, copy the folder and set `ALLOW_MODEL_DOWNLOADS=false`. The container
+writes as root, so use `sudo chown -R $USER models-serve/models` if you need to
+edit the files by hand.
 
 ### On its own GPU server
 
@@ -124,7 +145,7 @@ using one model's internal state at the same time.
 | `MODELS_TOKEN` | empty (no check) | required by the standalone compose file |
 | `DEVICE` | `cpu` | `cuda:0`, `cuda:1`, `mps` |
 | `YOLO_SIZE` | `n` | `s`, `m`, `l` and `x` are more accurate and slower |
-| `WEIGHTS_DIR` | `models-serve/weights` (`/data/weights` in Docker) | |
+| `WEIGHTS_DIR` | `models-serve/models` (bind-mounted at `/app/models` in Docker) | every downloaded and pushed model, as plain files |
 | `ALLOW_MODEL_DOWNLOADS` | `true` | `false` for air-gapped servers (copy the weights into `WEIGHTS_DIR`) |
 | `PRELOAD` | `[]` | e.g. `["yolo26-detect","yolo26-pose"]`, loaded in the background at startup |
 | `TRACK_SESSION_TTL` / `MAX_TRACK_SESSIONS` | `300` / `32` | |

@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     # =========================================================================
     # MODELS
     # =========================================================================
-    weights_dir: Path = SERVE_DIR / "weights"  # downloaded public models and pushed custom models
+    weights_dir: Path = SERVE_DIR / "models"  # downloaded public models and pushed custom models
     yolo_size: str = "n"  # YOLO26 size for the built-in models: n, s, m, l, x
     device: str = "cpu"  # "cpu", "cuda:0", "mps"
     allow_model_downloads: bool = True  # set false for air-gapped installs
