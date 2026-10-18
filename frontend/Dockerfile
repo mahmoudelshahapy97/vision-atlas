@@ -24,6 +24,8 @@ COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 # The nginx image renders /etc/nginx/templates/*.template with envsubst on
 # start, so this is a substitution default rather than a fixed value.
 ENV ATLAS_API_URL=http://api:8000 \
+    ATLAS_MINIO_URL=http://minio:9000 \
+    MINIO_BUCKET=atlas \
     NGINX_ENVSUBST_TEMPLATE_SUFFIX=.template
 
 EXPOSE 80

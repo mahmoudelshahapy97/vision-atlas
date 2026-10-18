@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -18,13 +19,17 @@ import { RunStatusChip } from "../../components/StatusChips";
 import { useAsync } from "../../hooks/useAsync";
 import { formatDateTime, formatDurationMs } from "../../utils/format";
 
+/** A run's first image or video snapshot; a quiet placeholder when there is none or it won't load. */
 export function RunThumb({ src, height = 150 }) {
-  return src ? (
-    <CardMedia component="img" image={mediaUrl(src)} alt="" loading="lazy" sx={{ height, objectFit: "cover", bgcolor: "action.hover" }} />
+  const [failed, setFailed] = useState(null);
+  return src && failed !== src ? (
+    <CardMedia component="img" image={mediaUrl(src)} alt="" loading="lazy" onError={() => setFailed(src)}
+      sx={{ height, objectFit: "cover", bgcolor: "action.hover" }} />
   ) : (
-    <Box sx={{ height, display: "grid", placeItems: "center", bgcolor: "action.hover", color: "text.disabled" }}>
+    <Stack spacing={0.5} alignItems="center" justifyContent="center" sx={{ height, bgcolor: "action.hover", color: "text.disabled" }}>
       <ImageNotSupportedIcon />
-    </Box>
+      <Typography variant="caption">No preview</Typography>
+    </Stack>
   );
 }
 

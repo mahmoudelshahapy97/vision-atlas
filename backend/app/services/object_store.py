@@ -9,8 +9,10 @@ prefix delete:
 
 The bucket is private. Browsers load files through presigned GET links, which
 are signed for MINIO_PUBLIC_URL (where browsers reach MinIO) rather than the
-endpoint the API connects to. Signing is local: the region is fixed, so it
-never asks the server.
+endpoint the API connects to. MINIO_PUBLIC_URL=/ gives same-origin links
+(/<bucket>/<key>?X-Amz-...) that the console's nginx forwards to MinIO, so
+browsers need nothing but the console's address. Signing is local: the region
+is fixed, so it never asks the server.
 
 Nothing here raises: a failed call logs and returns None/False, and callers
 keep the file on disk (served at /media) so an outage of the store never costs
@@ -75,6 +77,19 @@ class ObjectStore:
                 self._client = client
         return self._client
 
+    @property
+    def relative_links(self) -> bool:
+        """MINIO_PUBLIC_URL=/ : links are paths on the console's origin, signed for
+        MINIO_ENDPOINT, which is the Host the console's proxy sends to MinIO."""
+        return config.minio_public_url.strip() == "/"
+
+    def link_base(self) -> str:
+        """What every current link to this bucket starts with."""
+        if self.relative_links:
+            return f"/{self.bucket}/"
+        public = config.minio_public_url or f"{'https' if config.minio_secure else 'http'}://{config.minio_endpoint}"
+        return f"{public.rstrip('/')}/{self.bucket}/"
+
     def _signing_client(self):
         """A client for MINIO_PUBLIC_URL, used only to sign links (no network)."""
         if self._signer is not None:
@@ -83,7 +98,7 @@ class ObjectStore:
             if self._signer is None:
                 from minio import Minio
 
-                public = urlsplit(config.minio_public_url) if config.minio_public_url else None
+                public = urlsplit(config.minio_public_url) if config.minio_public_url and not self.relative_links else None
                 self._signer = Minio(
                     public.netloc if public else config.minio_endpoint,
                     access_key=config.minio_access_key,
@@ -132,6 +147,9 @@ class ObjectStore:
         except Exception as e:
             logger.warning("Object store sign %s failed: %s", key, e)
             return None
+        if self.relative_links:
+            parts = urlsplit(url)
+            url = f"{parts.path}?{parts.query}"
         return url, datetime.now(timezone.utc) + expires
 
     # ----------------------------------------------------------------- delete
