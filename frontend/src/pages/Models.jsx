@@ -11,6 +11,7 @@ import Chip from "@mui/material/Chip";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import IconButton from "@mui/material/IconButton";
 import Link from "@mui/material/Link";
+import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -30,7 +31,7 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import { models as modelsApi } from "../api/endpoints";
 import { useAuth } from "../auth/AuthContext";
 import ConfirmDialog from "../components/ConfirmDialog";
-import { ErrorState, Loading } from "../components/DataStates";
+import { ErrorState } from "../components/DataStates";
 import PageHeader from "../components/PageHeader";
 import { useToast } from "../components/Toast";
 import { usePolling } from "../hooks/usePolling";
@@ -60,6 +61,7 @@ export default function Models() {
   });
   const [form, setForm] = useState({ name: "", is_public: false });
   const [file, setFile] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
   const data = models.data;
@@ -115,7 +117,13 @@ export default function Models() {
         actions={<Button onClick={models.reload} startIcon={<RefreshIcon />}>Refresh</Button>}
       />
       <ErrorState error={models.error} onRetry={models.reload} />
-      {!data && !models.error && <Loading label="Loading models…" />}
+      {!data && !models.error && (
+        <Card aria-busy="true" sx={{ p: 2 }}>
+          <Skeleton width={180} height={28} />
+          <Skeleton width={320} sx={{ mb: 2 }} />
+          {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} height={44} />)}
+        </Card>
+      )}
 
       {data && (
         <Stack spacing={3}>
@@ -136,7 +144,7 @@ export default function Models() {
                 <TableHead>
                   <TableRow>
                     <TableCell>Model</TableCell>
-                    <TableCell>Does</TableCell>
+                    <TableCell>Task</TableCell>
                     <TableCell>Source</TableCell>
                     <TableCell>License</TableCell>
                     <TableCell>Size</TableCell>
@@ -189,9 +197,18 @@ export default function Models() {
               {user ? (
                 <Box component="form" onSubmit={upload}>
                   <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ md: "center" }}>
-                    <Button component="label" variant="outlined" startIcon={<AttachFileIcon />} sx={{ flexShrink: 0, maxWidth: { md: 280 } }}>
+                    <Button
+                      component="label"
+                      variant="outlined"
+                      startIcon={<AttachFileIcon />}
+                      // Dropping a .pt on the button works as well as browsing.
+                      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                      onDragLeave={() => setDragOver(false)}
+                      onDrop={(e) => { e.preventDefault(); setDragOver(false); setFile(e.dataTransfer.files[0] || null); }}
+                      sx={{ flexShrink: 0, maxWidth: { md: 280 }, ...(dragOver && { borderStyle: "dashed", bgcolor: "action.selected" }) }}
+                    >
                       <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {file ? file.name : "Choose weights (.pt)"}
+                        {file ? file.name : "Choose or drop weights (.pt)"}
                       </Box>
                       <input hidden type="file" accept=".pt" onChange={(e) => { setFile(e.target.files[0] || null); e.target.value = ""; }} />
                     </Button>

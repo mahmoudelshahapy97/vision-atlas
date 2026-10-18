@@ -3,6 +3,7 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import { alpha } from "@mui/material/styles";
 
 export function StatCard({ label, value, hint, icon, color = "primary", dense = false }) {
   return (
@@ -31,7 +32,7 @@ export function StatCard({ label, value, hint, icon, color = "primary", dense = 
                 height: 42,
                 borderRadius: 2,
                 flexShrink: 0,
-                bgcolor: (t) => `${t.palette[color].main}1f`,
+                bgcolor: (t) => alpha(t.palette[color].main, 0.12),
                 color: `${color}.main`,
                 boxShadow: (t) => (t.palette.mode === "dark" ? `0 0 18px -6px ${t.palette[color].main}` : "none"),
               }}

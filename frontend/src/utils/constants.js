@@ -41,4 +41,6 @@ export const isRunActive = (run) => Boolean(run) && RUN_ACTIVE.has(run.status);
 // Lab polling intervals.
 export const RUN_POLL_MS = 700;
 export const RUN_PAGE_POLL_MS = 800;
+// The run history re-polls only while one of its runs is queued or running.
+export const RUN_LIST_POLL_MS = 3000;
 export const MODEL_DOWNLOAD_POLL_MS = 2000;

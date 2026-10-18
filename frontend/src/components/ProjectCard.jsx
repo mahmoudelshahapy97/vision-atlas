@@ -33,7 +33,7 @@ export function ProjectTag({ project: p, sx }) {
 
 export default function ProjectCard({ project: p, onOpen, showStatus }) {
   return (
-    <Card sx={{ height: "100%", "&:hover": { borderColor: "primary.main" }, transition: "border-color .15s" }}>
+    <Card sx={{ height: "100%" }}>
       <CardActionArea
         onClick={() => onOpen(p.id)}
         aria-label={`Project ${p.id}: ${p.title}`}
@@ -72,13 +72,11 @@ export default function ProjectCard({ project: p, onOpen, showStatus }) {
           ) : (
             <Typography variant="caption" color="text.secondary" noWrap>{p.task_type.metric}</Typography>
           )}
-          {p.is_pick ? (
+          {p.is_pick && (
             <Typography variant="caption" color="warning.main" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontWeight: 700, flexShrink: 0 }}>
               <StarIcon sx={{ fontSize: 14 }} />Top pick
             </Typography>
-          ) : showStatus ? (
-            <Typography variant="caption" color="text.secondary" noWrap>{p.task_type.metric}</Typography>
-          ) : null}
+          )}
         </Stack>
       </CardActionArea>
     </Card>

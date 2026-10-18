@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Link as RouterLink, NavLink, Outlet, useLocation } from "react-router-dom";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
@@ -31,6 +31,8 @@ import MenuBookIcon from "@mui/icons-material/MenuBook";
 import { health } from "../api/endpoints";
 import { usePolling } from "../hooks/usePolling";
 import { useAuth } from "../auth/AuthContext";
+import BrandMark from "../components/BrandMark";
+import { Loading } from "../components/DataStates";
 import UserMenu from "../components/UserMenu";
 
 const DRAWER_WIDTH = 248;
@@ -112,17 +114,13 @@ function BackendStatus() {
 }
 
 function Brand() {
-  const theme = useTheme();
   return (
     <Box
       component={RouterLink}
       to="/"
       sx={{ display: "flex", alignItems: "center", gap: 1.25, color: "inherit", textDecoration: "none" }}
     >
-      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
-        <path d="M3 10V3h7M22 3h7v7M29 22v7h-7M10 29H3v-7" fill="none" stroke="#f59e0b" strokeWidth="3" />
-        <circle cx="16" cy="16" r="5" fill={theme.palette.primary.main} />
-      </svg>
+      <BrandMark />
       <Box>
         <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
           Vision Atlas
@@ -182,7 +180,7 @@ export function AppLayout({ mode, onToggleMode }) {
                   // highlight is the router's business rather than state we keep.
                   "&.active": {
                     bgcolor: "action.selected",
-                    color: (t) => (t.palette.mode === "dark" ? "#60A5FA" : t.palette.primary.main),
+                    color: "nav.active",
                     "& .MuiListItemIcon-root": { color: "inherit" },
                   },
                 }}
@@ -248,7 +246,9 @@ export function AppLayout({ mode, onToggleMode }) {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap sx={{ flexGrow: 1, minWidth: 0 }}>
+          {/* On desktop the highlighted nav item and the page's own heading
+              already say where you are; the bar title is for phones. */}
+          <Typography variant="h6" noWrap sx={{ flexGrow: 1, minWidth: 0, visibility: { md: "hidden" } }}>
             {currentTitle}
           </Typography>
           <Stack direction="row" spacing={1.5} alignItems="center">
@@ -298,8 +298,12 @@ export function AppLayout({ mode, onToggleMode }) {
         }}
       >
         <Toolbar />
-        <Box sx={{ pt: 3 }}>
-          <Outlet />
+        <Box sx={{ pt: 3, maxWidth: 1440, mx: "auto" }}>
+          {/* Here rather than around the routes, so a lazy page loading
+              swaps only the content and the drawer and bar stay put. */}
+          <Suspense fallback={<Loading />}>
+            <Outlet />
+          </Suspense>
         </Box>
       </Box>
     </Box>

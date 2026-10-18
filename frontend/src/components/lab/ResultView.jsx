@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import Alert from "@mui/material/Alert";
@@ -10,6 +10,7 @@ import Card from "@mui/material/Card";
 import CardHeader from "@mui/material/CardHeader";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
+import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
 import Link from "@mui/material/Link";
 import List from "@mui/material/List";
@@ -24,6 +25,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import CloseIcon from "@mui/icons-material/Close";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DownloadIcon from "@mui/icons-material/Download";
 import RecordVoiceOverIcon from "@mui/icons-material/RecordVoiceOver";
@@ -48,11 +50,30 @@ const media = { display: "block", width: "100%", maxHeight: "70vh", objectFit: "
 function Lightbox({ image, onClose }) {
   return (
     <Dialog open onClose={onClose} maxWidth="xl" aria-label={image.caption} onClick={onClose}
-      PaperProps={{ sx: { bgcolor: "transparent", boxShadow: "none", backgroundImage: "none", border: 0 } }}>
+      PaperProps={{ sx: { bgcolor: "transparent", boxShadow: "none", backgroundImage: "none", border: 0, position: "relative" } }}>
+      <IconButton
+        onClick={onClose}
+        aria-label="Close"
+        autoFocus
+        sx={{ position: "absolute", top: 8, right: 8, color: "#fff", bgcolor: "rgba(0, 0, 0, 0.55)", "&:hover": { bgcolor: "rgba(0, 0, 0, 0.75)" } }}
+      >
+        <CloseIcon />
+      </IconButton>
       <Box component="img" src={mediaUrl(image.url)} alt={image.caption} sx={{ display: "block", maxWidth: "100%", maxHeight: "85vh", mx: "auto", borderRadius: 2 }} />
       <Typography variant="body2" align="center" sx={{ color: "#fff", mt: 1 }}>{image.caption} · click anywhere to close</Typography>
     </Dialog>
   );
+}
+
+/** Seconds since `since`, ticking once a second. */
+function Elapsed({ since }) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const s = Math.max(0, Math.round((now - new Date(since).getTime()) / 1000));
+  return Number.isFinite(s) ? `${s} s` : null;
 }
 
 function DataTable({ table }) {
@@ -126,9 +147,14 @@ export default function ResultView({ run }) {
         <Stack direction="row" spacing={2.5} alignItems="center">
           <CircularProgress size={36} />
           <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-              {run.status === "queued" ? "Waiting in the queue…" : "Analyzing…"}
-            </Typography>
+            <Stack direction="row" justifyContent="space-between" alignItems="baseline" spacing={1}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                {run.status === "queued" ? "Waiting in the queue…" : "Analyzing…"}
+              </Typography>
+              {run.created_at && (
+                <Typography variant="caption" color="text.secondary"><Elapsed since={run.created_at} /> · {pct}%</Typography>
+              )}
+            </Stack>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
               First runs download the model weights, so they take longer.
             </Typography>
