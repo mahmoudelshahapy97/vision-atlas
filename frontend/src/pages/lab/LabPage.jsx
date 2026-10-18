@@ -8,6 +8,7 @@ import ButtonBase from "@mui/material/ButtonBase";
 import Card from "@mui/material/Card";
 import CardHeader from "@mui/material/CardHeader";
 import Grid from "@mui/material/Grid2";
+import IconButton from "@mui/material/IconButton";
 import Link from "@mui/material/Link";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
@@ -18,9 +19,11 @@ import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
 import { alpha } from "@mui/material/styles";
+import CloseIcon from "@mui/icons-material/Close";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import ScienceIcon from "@mui/icons-material/Science";
+import StarIcon from "@mui/icons-material/Star";
 import { mediaUrl } from "../../api/client";
 import { lab as labApi, runs as runsApi } from "../../api/endpoints";
 import { useAuth } from "../../auth/AuthContext";
@@ -92,12 +95,7 @@ function SlotInput({ slot, items, setItems, samples }) {
           borderColor: (t) =>
             over ? t.palette.primary.main : t.palette.mode === "dark" ? "rgba(255, 255, 255, 0.16)" : t.palette.divider,
           borderRadius: 2,
-          bgcolor: (t) =>
-            over
-              ? alpha(t.palette.primary.main, 0.08)
-              : t.palette.mode === "dark"
-                ? "rgba(7, 10, 17, 0.55)"
-                : t.palette.background.default,
+          bgcolor: (t) => (over ? alpha(t.palette.primary.main, 0.08) : t.palette.surface.sunken),
           transition: "border-color .15s, background-color .15s",
         }}
       >
@@ -115,8 +113,16 @@ function SlotInput({ slot, items, setItems, samples }) {
           <Box sx={{ p: 1 }}>
             <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
               {items.map((it, i) => (
-                <Box key={i} sx={{ width: 104, "& img, & video": { width: 104, height: 78, objectFit: "cover", borderRadius: 1.5, display: "block", bgcolor: "action.hover" } }}>
+                <Box key={i} sx={{ position: "relative", width: 104, "& img, & video": { width: 104, height: 78, objectFit: "cover", borderRadius: 1.5, display: "block", bgcolor: "action.hover" } }}>
                   {it.kind === "video" ? <video src={it.url} poster={it.poster} muted playsInline /> : <img src={it.url} alt={it.name} />}
+                  <IconButton
+                    size="small"
+                    aria-label={`Remove ${it.name}`}
+                    onClick={() => setItems(items.filter((_, j) => j !== i))}
+                    sx={{ position: "absolute", top: 4, right: 4, p: 0.25, color: "#fff", bgcolor: "rgba(0, 0, 0, 0.55)", "&:hover": { bgcolor: "rgba(0, 0, 0, 0.75)" } }}
+                  >
+                    <CloseIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
                   <Typography variant="caption" color="text.secondary" noWrap title={it.name} component="div" sx={{ mt: 0.25 }}>
                     {it.sample ? "sample · " : ""}{it.name}
                   </Typography>
@@ -139,6 +145,7 @@ export default function LabPage() {
   const { id } = useParams();
   const { user } = useAuth();
   const toast = useToast();
+  const resultsRef = useRef(null);
   const lab = useAsync((opts) => labApi.forProject(id, opts), [id, user?.id]);
   const [tabIdx, setTabIdx] = useState(0);
   const [inputs, setInputs] = useState({});
@@ -211,6 +218,12 @@ export default function LabPage() {
       polled.setData(r);
       setRunId(r.public_id);
       setActiveGeo(null);
+      // After scrolling down a long form (or on a phone, where results sit
+      // below it) the results start off screen; bring them up.
+      const top = resultsRef.current?.getBoundingClientRect().top;
+      if (top !== undefined && (top < 64 || top > window.innerHeight - 120)) {
+        resultsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     } catch (e) {
       toast(e.message, "err");
     } finally {
@@ -271,7 +284,15 @@ export default function LabPage() {
           aria-label="Pipelines"
           sx={{ mb: 2.5, borderBottom: 1, borderColor: "divider" }}
         >
-          {data.tabs.map((t, i) => <Tab key={t.name} value={i} label={`${i === 0 ? "★ " : ""}${t.label}`} />)}
+          {data.tabs.map((t, i) => (
+            <Tab
+              key={t.name}
+              value={i}
+              label={t.label}
+              {...(i === 0 && { icon: <StarIcon sx={{ fontSize: 16 }} />, iconPosition: "start", title: "Recommended pipeline" })}
+              sx={{ minHeight: 48 }}
+            />
+          ))}
         </Tabs>
       )}
 
@@ -280,7 +301,8 @@ export default function LabPage() {
           <Card
             component="section"
             aria-label="Inputs and settings"
-            sx={{ p: 2, position: { md: "sticky" }, top: { md: 88 }, maxHeight: { md: "calc(100vh - 104px)" }, overflowY: { md: "auto" } }}
+            // overflow visible: a clipping card would trap the sticky Run bar inside it
+            sx={{ p: 2, overflow: "visible" }}
           >
             <Stack spacing={2.25}>
               <Typography variant="body2" color="text.secondary">{tab.description}</Typography>
@@ -292,27 +314,37 @@ export default function LabPage() {
                 <CanvasEditor src={bg} params={geoParams} values={values} active={activeGeo} onChange={setValue} />
               )}
               <ParamForm tab={tab} values={values} setValue={setValue} activeGeo={activeGeo} setActiveGeo={setActiveGeo} hasImage={!!bg} />
-              {user ? (
-                <Button variant="contained" size="large" startIcon={<PlayArrowIcon />} onClick={submit}
-                  disabled={busy || missing.length > 0 || isRunActive(run)}>
-                  {busy ? "Uploading…" : isRunActive(run) ? "Running…" : "Run"}
-                </Button>
-              ) : (
-                <Alert severity="info" icon={<ScienceIcon />}>
-                  <Link component={RouterLink} to={`/login?next=${encodeURIComponent(`/projects/${id}/lab`)}`}>Sign in</Link> to run the lab. Runs are saved to your history.
-                </Alert>
-              )}
-              {missing.length > 0 && <Typography variant="caption" color="text.secondary">Add: {missing.join(", ")}.</Typography>}
               {tab.model_specs?.length > 0 && (
                 <Typography variant="caption" color="text.secondary">
                   Models: {tab.model_specs.map((m) => `${m.name} (${m.license})`).join(" · ")}
                 </Typography>
               )}
+              {/* Pinned to the bottom of the window while the card is on screen, so Run stays in reach on long forms. */}
+              <Stack
+                spacing={1}
+                sx={{
+                  position: "sticky", bottom: 0, zIndex: 1, mx: -2, mb: -2, px: 2, py: 1.5,
+                  borderTop: 1, borderColor: "divider", bgcolor: "surface.solid", borderRadius: "0 0 16px 16px",
+                  boxShadow: "0 -10px 20px -12px rgba(0, 0, 0, 0.45)",
+                }}
+              >
+                {missing.length > 0 && <Typography variant="caption" color="warning.main">Add: {missing.join(", ")}.</Typography>}
+                {user ? (
+                  <Button variant="contained" size="large" startIcon={<PlayArrowIcon />} onClick={submit}
+                    disabled={busy || missing.length > 0 || isRunActive(run)}>
+                    {busy ? "Uploading…" : isRunActive(run) ? "Running…" : "Run"}
+                  </Button>
+                ) : (
+                  <Alert severity="info" icon={<ScienceIcon />}>
+                    <Link component={RouterLink} to={`/login?next=${encodeURIComponent(`/projects/${id}/lab`)}`}>Sign in</Link> to run the lab. Runs are saved to your history.
+                  </Alert>
+                )}
+              </Stack>
             </Stack>
           </Card>
         </Grid>
 
-        <Grid size={{ xs: 12, md: 7, lg: 8 }} component="section" aria-label="Results" aria-live="polite">
+        <Grid size={{ xs: 12, md: 7, lg: 8 }} component="section" aria-label="Results" aria-live="polite" ref={resultsRef} sx={{ scrollMarginTop: 80 }}>
           <Stack spacing={3}>
             {run ? <ResultView run={run} /> : (
               <Card sx={{ borderStyle: "dashed" }}>
@@ -325,7 +357,12 @@ export default function LabPage() {
             )}
             {user && history.data?.length > 0 && (
               <Card>
-                <CardHeader title="Your recent runs" titleTypographyProps={{ variant: "subtitle2" }} sx={{ pb: 0 }} />
+                <CardHeader
+                  title="Your recent runs"
+                  titleTypographyProps={{ variant: "subtitle2" }}
+                  action={<Button size="small" component={RouterLink} to="/runs">View all runs</Button>}
+                  sx={{ pb: 0, "& .MuiCardHeader-action": { alignSelf: "center", m: 0 } }}
+                />
                 <List dense>
                   {history.data.map((h) => (
                     <ListItemButton key={h.public_id} selected={run?.public_id === h.public_id} onClick={() => openRun(h.public_id)} sx={{ gap: 1.5 }}>

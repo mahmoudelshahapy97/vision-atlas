@@ -8,6 +8,7 @@ import CardHeader from "@mui/material/CardHeader";
 import Chip from "@mui/material/Chip";
 import Grid from "@mui/material/Grid2";
 import LinearProgress from "@mui/material/LinearProgress";
+import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -16,7 +17,7 @@ import EventNoteIcon from "@mui/icons-material/EventNote";
 import DonutLargeIcon from "@mui/icons-material/DonutLarge";
 
 import { me } from "../api/endpoints";
-import { EmptyState, ErrorState, Loading } from "../components/DataStates";
+import { EmptyState, ErrorState } from "../components/DataStates";
 import PageHeader from "../components/PageHeader";
 import { ProjectTag } from "../components/ProjectCard";
 import StatCard from "../components/StatCard";
@@ -25,6 +26,8 @@ import { useAsync } from "../hooks/useAsync";
 import { formatDate, pad } from "../utils/format";
 
 const COLUMNS = ["planned", "building", "done"];
+// The project drawer closes back to the board rather than the catalog.
+const FROM_BOARD = { from: "/board" };
 
 export default function Board() {
   const navigate = useNavigate();
@@ -42,7 +45,16 @@ export default function Board() {
         actions={<Button component={RouterLink} to="/?view=board">Show in catalog</Button>}
       />
       <ErrorState error={stats.error || mine.error} onRetry={() => { stats.reload(); mine.reload(); }} />
-      {!s && !stats.error && <Loading label="Loading your board…" />}
+      {!s && !stats.error && (
+        <Box aria-busy="true">
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            {[0, 1, 2, 3].map((i) => (
+              <Grid key={i} size={{ xs: 6, md: 3 }}><Skeleton variant="rounded" height={118} sx={{ borderRadius: 4 }} /></Grid>
+            ))}
+          </Grid>
+          <Skeleton variant="rounded" height={320} sx={{ borderRadius: 4 }} />
+        </Box>
+      )}
 
       {s && (
         <>
@@ -104,16 +116,28 @@ export default function Board() {
           {COLUMNS.map((col) => {
             const list = items.filter((p) => p.progress.status === col);
             return (
-              <Card key={col} component="section" sx={{ bgcolor: (t) => (t.palette.mode === "dark" ? "rgba(7, 10, 17, 0.55)" : t.palette.background.default) }}>
+              <Card key={col} component="section" sx={{ bgcolor: "surface.sunken" }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 2, py: 1.5 }}>
                   <StatusChip status={col} />
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>{list.length}</Typography>
                 </Stack>
                 <Stack spacing={1} sx={{ px: 1.5, pb: 1.5 }}>
-                  {list.length === 0 && <Typography variant="body2" color="text.secondary" sx={{ px: 0.5 }}>No projects here yet.</Typography>}
+                  {list.length === 0 && (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ py: 3, textAlign: "center", border: "1.5px dashed", borderColor: "divider", borderRadius: 3 }}
+                    >
+                      No projects here yet.
+                    </Typography>
+                  )}
                   {list.map((p) => (
                     <Card key={p.id}>
-                      <CardActionArea onClick={() => navigate(`/projects/${p.id}`)} sx={{ p: 1.5, display: "grid", gap: 0.5 }}>
+                      {/* ButtonBase centres its content; a grid needs it pulled back to the left. */}
+                      <CardActionArea
+                        onClick={() => navigate(`/projects/${p.id}`, { state: FROM_BOARD })}
+                        sx={{ p: 1.5, display: "grid", gap: 0.5, justifyContent: "stretch", justifyItems: "start", textAlign: "left" }}
+                      >
                         <ProjectTag project={p} />
                         <Typography variant="subtitle2">{p.title}</Typography>
                         {p.progress.notes && (
@@ -137,7 +161,7 @@ export default function Board() {
           <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>Ideas with notes</Typography>
           <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 0.5 }}>
             {noteOnly.map((p) => (
-              <Chip key={p.id} clickable component={RouterLink} to={`/projects/${p.id}`} variant="outlined" label={`#${pad(p.id)} ${p.title}`} />
+              <Chip key={p.id} clickable component={RouterLink} to={`/projects/${p.id}`} state={FROM_BOARD} variant="outlined" label={`#${pad(p.id)} ${p.title}`} />
             ))}
           </Stack>
         </Box>

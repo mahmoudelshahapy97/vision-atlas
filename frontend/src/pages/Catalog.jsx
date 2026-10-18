@@ -5,12 +5,14 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
 import Drawer from "@mui/material/Drawer";
 import InputAdornment from "@mui/material/InputAdornment";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import ListSubheader from "@mui/material/ListSubheader";
+import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import ToggleButton from "@mui/material/ToggleButton";
@@ -28,7 +30,7 @@ import ProjectCard from "../components/ProjectCard";
 import { ProgressBar } from "../components/StatusChips";
 import { useAsync } from "../hooks/useAsync";
 import { useDebounced } from "../hooks/useDebounced";
-import { SUPPORT_FILTERS } from "../utils/constants";
+import { LEVELS, SUPPORT_FILTERS, SUPPORT_LABEL } from "../utils/constants";
 
 const LEVEL_OPTS = [[0, "Any level"], [1, "Beginner"], [2, "Intermediate"], [3, "Advanced"]];
 
@@ -196,6 +198,21 @@ export default function Catalog() {
     [items, search]
   );
 
+  const clearAll = () => {
+    setQInput("");
+    setFilters({ q: "", domain: "", task: "", level: 0, support: "" });
+  };
+
+  // One removable chip per active filter; on phones the filter list itself is in a drawer.
+  const nameOf = (list, code) => list.data?.find((x) => x.code === code)?.name || code;
+  const activeChips = [
+    f.q && [`“${f.q}”`, () => { setQInput(""); setFilters({ q: "" }); }],
+    f.domain && [nameOf(domains, f.domain), () => setFilters({ domain: "" })],
+    f.task && [nameOf(tasks, f.task), () => setFilters({ task: "" })],
+    f.support && [SUPPORT_LABEL[f.support], () => setFilters({ support: "" })],
+    f.level && [LEVELS[f.level], () => setFilters({ level: 0 })],
+  ].filter(Boolean);
+
   const pick = (patch) => {
     setFilters(patch);
     setFiltersOpen(false);
@@ -230,14 +247,14 @@ export default function Catalog() {
     </Stack>
   );
 
-  const projectCount = domains.data ? domains.data.reduce((a, d) => a + d.project_count, 0) : 90;
+  const projectCount = domains.data?.reduce((a, d) => a + d.project_count, 0);
 
   return (
     <Box>
       <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between" alignItems={{ md: "center" }} sx={{ mb: 3 }}>
         <Box sx={{ maxWidth: 680 }}>
-          <Typography variant="overline" color="primary.main" sx={{ fontWeight: 700 }}>
-            Computer vision · {projectCount} projects · {domains.data?.length ?? 15} domains
+          <Typography variant="overline" color="primary.main" component="div" sx={{ fontWeight: 700 }}>
+            {domains.data ? `Computer vision · ${projectCount} projects · ${domains.data.length} domains` : <Skeleton width={260} />}
           </Typography>
           <Typography variant="h4" component="h1">Vision Project Atlas</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
@@ -312,11 +329,12 @@ export default function Catalog() {
         <Box component="section" aria-label="Projects" sx={{ minWidth: 0 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ mb: 1.5, minHeight: 32 }}>
             <Typography variant="body2" color="text.secondary">
-              Showing <b>{list.data ? items.length : "…"}</b> projects{list.loading && list.data ? " · updating" : ""}
+              Showing <b>{list.data ? items.length : "…"}</b>
+              {active && projectCount ? ` of ${projectCount}` : ""} projects{list.loading && list.data ? " · updating" : ""}
             </Typography>
             <Stack direction="row" spacing={1}>
               {active ? (
-                <Button size="small" onClick={() => { setQInput(""); setFilters({ q: "", domain: "", task: "", level: 0, support: "" }); }}>
+                <Button size="small" onClick={clearAll}>
                   Clear filters
                 </Button>
               ) : null}
@@ -328,6 +346,13 @@ export default function Catalog() {
               )}
             </Stack>
           </Stack>
+          {activeChips.length > 0 && (
+            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mb: 1.5 }} aria-label="Active filters">
+              {activeChips.map(([label, remove]) => (
+                <Chip key={label} label={label} size="small" color="primary" variant="outlined" onDelete={remove} />
+              ))}
+            </Stack>
+          )}
           <ErrorState error={list.error} onRetry={list.reload} />
           <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))", gap: 2 }}>
             {!list.data && list.loading && <SkeletonCards />}
@@ -335,9 +360,17 @@ export default function Catalog() {
           </Box>
           {list.data && items.length === 0 && (
             view === "board" && !active ? (
-              <EmptyState title="Nothing on your board yet" description="Open any project and set it to Planned, Building or Done." />
+              <EmptyState
+                title="Nothing on your board yet"
+                description="Open any project and set it to Planned, Building or Done."
+                action={<Button variant="outlined" onClick={() => setFilters({ view: "all" })}>Browse all projects</Button>}
+              />
             ) : (
-              <EmptyState title="No projects match" description="Try another search word or clear the filters." />
+              <EmptyState
+                title="No projects match"
+                description="Try another search word or clear the filters."
+                action={active ? <Button variant="outlined" onClick={clearAll}>Clear filters</Button> : null}
+              />
             )
           )}
         </Box>

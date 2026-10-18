@@ -20,6 +20,8 @@ export const SERIES_COLORS = [
 // Neon cyan is the interaction colour (hover borders, focus rings, outlines)
 // in the dark "obsidian + glass" look. Light mode falls back to primary.
 const NEON = "#00F0FF";
+// Selected nav items, toggles and menu items in dark mode.
+const NAV_ACTIVE_DARK = "#60A5FA";
 const EASE = "cubic-bezier(0.4, 0, 0.2, 1)";
 
 const GLASS = {
@@ -73,6 +75,11 @@ export const buildTheme = (mode = "dark") => {
       info: dark
         ? { main: NEON, light: "#38BDF8", dark: "#0284C7", contrastText: "#07090E" }
         : { main: "#0284C7", light: "#38BDF8", dark: "#0369A1", contrastText: "#fff" },
+      // Custom keys: `surface.sunken` is the recessed well behind drop zones
+      // and board columns, `surface.solid` an opaque card colour for bars that
+      // float over content; `nav.active` the text colour of a selected item.
+      surface: { sunken: dark ? "rgba(7, 10, 17, 0.55)" : "#f4f6fb", solid: dark ? "#0E131F" : "#ffffff" },
+      nav: { active: dark ? NAV_ACTIVE_DARK : "#2F80ED" },
       ...(dark
         ? {
             background: { default: "#070A11", paper: "rgba(15, 23, 42, 0.78)" },
@@ -121,6 +128,26 @@ export const buildTheme = (mode = "dark") => {
             "*::-webkit-scrollbar-thumb:hover": {
               background: "rgba(0, 194, 255, 0.4)",
               boxShadow: "0 0 10px rgba(0, 194, 255, 0.35)",
+            },
+          }),
+          // Keep state changes but drop the movement for people who ask for less.
+          "@media (prefers-reduced-motion: reduce)": {
+            "*, *::before, *::after": {
+              transitionDuration: "0.01ms !important",
+              animationDuration: "0.01ms !important",
+              animationIterationCount: "1 !important",
+            },
+          },
+        },
+      },
+      // One keyboard focus ring for everything clickable (cards, nav items,
+      // chips, toggles, icon buttons); MUI only shows a faint ripple tint.
+      MuiButtonBase: {
+        styleOverrides: {
+          root: ({ theme }) => ({
+            "&.Mui-focusVisible": {
+              outline: `2px solid ${dark ? NEON : theme.palette.primary.main}`,
+              outlineOffset: 2,
             },
           }),
         },
@@ -228,7 +255,7 @@ export const buildTheme = (mode = "dark") => {
             ...(dark && {
               borderColor: GLASS.border,
               "&.Mui-selected": {
-                color: "#60A5FA",
+                color: NAV_ACTIVE_DARK,
                 backgroundColor: alpha("#3B82F6", 0.16),
                 "&:hover": { backgroundColor: alpha("#3B82F6", 0.22) },
               },
@@ -238,7 +265,8 @@ export const buildTheme = (mode = "dark") => {
         },
       },
       MuiTab: {
-        styleOverrides: { root: { textTransform: "none", fontWeight: 600 } },
+        // Inside the ring: the tab strip clips anything drawn outside it.
+        styleOverrides: { root: { textTransform: "none", fontWeight: 600, "&.Mui-focusVisible": { outlineOffset: -2 } } },
       },
       MuiChip: {
         styleOverrides: {
@@ -329,7 +357,7 @@ export const buildTheme = (mode = "dark") => {
             transition: `background-color .15s ${EASE}`,
             ...(dark && {
               "&.Mui-selected": {
-                color: "#60A5FA",
+                color: NAV_ACTIVE_DARK,
                 backgroundColor: alpha("#3B82F6", 0.16),
                 "&:hover, &.Mui-focusVisible": { backgroundColor: alpha("#3B82F6", 0.22) },
               },

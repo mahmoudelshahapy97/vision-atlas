@@ -6,6 +6,7 @@ import Card from "@mui/material/Card";
 import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
 import Link from "@mui/material/Link";
+import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -24,7 +25,7 @@ import StarIcon from "@mui/icons-material/Star";
 
 import { projects } from "../../api/endpoints";
 import ConfirmDialog from "../../components/ConfirmDialog";
-import { EmptyState, ErrorState, Loading } from "../../components/DataStates";
+import { EmptyState, ErrorState } from "../../components/DataStates";
 import PageHeader from "../../components/PageHeader";
 import { useToast } from "../../components/Toast";
 import { useAsync } from "../../hooks/useAsync";
@@ -91,7 +92,9 @@ export default function ProjectList() {
       <ErrorState error={list.error} onRetry={list.reload} />
 
       {list.loading && !list.data ? (
-        <Loading label="Loading projects…" />
+        <Card aria-busy="true" sx={{ p: 2 }}>
+          {Array.from({ length: 10 }, (_, i) => <Skeleton key={i} height={40} />)}
+        </Card>
       ) : rows.length ? (
         <Card>
           <TableContainer>
@@ -112,7 +115,7 @@ export default function ProjectList() {
                   <TableRow key={p.id} hover>
                     <TableCell sx={mono}>{pad(p.id)}</TableCell>
                     <TableCell sx={{ minWidth: 220 }}>
-                      <Link component={RouterLink} to={`/projects/${p.id}`} underline="hover" sx={{ fontWeight: 600 }}>{p.title}</Link>
+                      <Link component={RouterLink} to={`/projects/${p.id}`} state={{ from: "/admin" }} underline="hover" sx={{ fontWeight: 600 }}>{p.title}</Link>
                     </TableCell>
                     <TableCell><Typography variant="body2" color="text.secondary" noWrap>{p.domain.name}</Typography></TableCell>
                     <TableCell sx={mono}>{p.task_type.code}</TableCell>

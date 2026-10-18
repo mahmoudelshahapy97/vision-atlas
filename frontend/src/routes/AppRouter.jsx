@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+import { lazy } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { Loading } from "../components/DataStates";
@@ -25,35 +25,34 @@ export default function AppRouter({ mode, onToggleMode }) {
 
   return (
     <BrowserRouter>
-      <Suspense fallback={<Loading />}>
-        <Routes>
-          <Route element={<AuthLayout />}>
-            <Route path="/login" element={<Login mode="login" />} />
-            <Route path="/register" element={<Login mode="register" />} />
+      {/* Each layout has its own Suspense around its Outlet. */}
+      <Routes>
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={<Login mode="login" />} />
+          <Route path="/register" element={<Login mode="register" />} />
+        </Route>
+
+        <Route element={<AppLayout mode={mode} onToggleMode={onToggleMode} />}>
+          <Route path="/" element={<Catalog />}>
+            <Route path="projects/:id" element={<ProjectDrawer />} />
+          </Route>
+          <Route path="/projects/:id/lab" element={<LabPage />} />
+          <Route path="/models" element={<Models />} />
+          <Route path="/runs">
+            <Route index element={<RequireAuth><RunList /></RequireAuth>} />
+            <Route path=":publicId" element={<RequireAuth><RunDetail /></RequireAuth>} />
+          </Route>
+          <Route path="/board" element={<RequireAuth><Board /></RequireAuth>} />
+
+          <Route path="/admin">
+            <Route index element={<RequireAuth minimum="admin"><ProjectList /></RequireAuth>} />
+            <Route path="new" element={<RequireAuth minimum="admin"><ProjectForm /></RequireAuth>} />
+            <Route path=":id/edit" element={<RequireAuth minimum="admin"><ProjectForm /></RequireAuth>} />
           </Route>
 
-          <Route element={<AppLayout mode={mode} onToggleMode={onToggleMode} />}>
-            <Route path="/" element={<Catalog />}>
-              <Route path="projects/:id" element={<ProjectDrawer />} />
-            </Route>
-            <Route path="/projects/:id/lab" element={<LabPage />} />
-            <Route path="/models" element={<Models />} />
-            <Route path="/runs">
-              <Route index element={<RequireAuth><RunList /></RequireAuth>} />
-              <Route path=":publicId" element={<RequireAuth><RunDetail /></RequireAuth>} />
-            </Route>
-            <Route path="/board" element={<RequireAuth><Board /></RequireAuth>} />
-
-            <Route path="/admin">
-              <Route index element={<RequireAuth minimum="admin"><ProjectList /></RequireAuth>} />
-              <Route path="new" element={<RequireAuth minimum="admin"><ProjectForm /></RequireAuth>} />
-              <Route path=":id/edit" element={<RequireAuth minimum="admin"><ProjectForm /></RequireAuth>} />
-            </Route>
-
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </Suspense>
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
     </BrowserRouter>
   );
 }

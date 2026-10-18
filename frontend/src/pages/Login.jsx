@@ -47,7 +47,7 @@ export default function Login({ mode }) {
       <div>
         <Typography variant="h6" component="h1">{isLogin ? "Sign in" : "Create your account"}</Typography>
         <Typography variant="body2" color="text.secondary">
-          {isLogin ? "Pick up where you left off on your projects." : "Track project status and keep notes for each of the 90 projects."}
+          {isLogin ? "Pick up where you left off on your projects." : "Track project status, keep notes and save your lab runs."}
         </Typography>
       </div>
       {error && <Alert severity="error">{error}</Alert>}

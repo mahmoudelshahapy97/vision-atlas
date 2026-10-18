@@ -1,9 +1,12 @@
+import { Suspense } from "react";
 import { Link as RouterLink, Outlet } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import BrandMark from "../components/BrandMark";
+import { Loading } from "../components/DataStates";
 
 /**
  * Centred single-card shell for /login and /register. Deliberately not
@@ -28,10 +31,7 @@ export function AuthLayout() {
         sx={{ width: "100%", maxWidth: 420, p: { xs: 3, sm: 4 }, borderRadius: 3 }}
       >
         <Stack spacing={0.5} alignItems="center" sx={{ mb: 3, textAlign: "center" }}>
-          <svg width="34" height="34" viewBox="0 0 32 32" aria-hidden="true">
-            <path d="M3 10V3h7M22 3h7v7M29 22v7h-7M10 29H3v-7" fill="none" stroke="#f59e0b" strokeWidth="3" />
-            <Box component="circle" cx="16" cy="16" r="5" sx={{ fill: (t) => t.palette.primary.main }} />
-          </svg>
+          <BrandMark size={34} />
           <Typography variant="h5" sx={{ fontWeight: 800 }}>
             Vision Atlas
           </Typography>
@@ -39,7 +39,9 @@ export function AuthLayout() {
             Computer-vision project lab
           </Typography>
         </Stack>
-        <Outlet />
+        <Suspense fallback={<Loading height={240} />}>
+          <Outlet />
+        </Suspense>
       </Paper>
       <Link component={RouterLink} to="/" variant="body2" underline="hover" color="text.secondary">
         ← Back to the catalog

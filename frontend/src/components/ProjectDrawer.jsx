@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link as RouterLink, useNavigate, useOutletContext, useParams } from "react-router-dom";
+import { Link as RouterLink, useLocation, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -54,6 +54,7 @@ export default function ProjectDrawer() {
   const { id } = useParams();
   const { ids = [], onChanged = () => {}, search = "" } = useOutletContext() || {};
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const toast = useToast();
 
@@ -74,8 +75,16 @@ export default function ProjectDrawer() {
   }, [p]);
 
   const qs = search ? `?${search}` : "";
-  const close = useCallback(() => navigate({ pathname: "/", search: qs }), [navigate, qs]);
-  const go = (pid) => pid && navigate({ pathname: `/projects/${pid}`, search: qs });
+  // Opened from the board or the admin list: closing goes back there, not to the catalog.
+  const from = location.state?.from;
+  const close = useCallback(
+    () => (from ? navigate(from) : navigate({ pathname: "/", search: qs })),
+    [navigate, qs, from]
+  );
+  const go = useCallback(
+    (pid) => pid && navigate({ pathname: `/projects/${pid}`, search: qs }, { state: location.state }),
+    [navigate, qs, location.state]
+  );
 
   const idx = ids.indexOf(Number(id));
   const prev = idx > 0 ? ids[idx - 1] : idx === -1 ? p?.prev_id : null;
@@ -114,6 +123,20 @@ export default function ProjectDrawer() {
     return () => clearTimeout(t);
   }, [notes, noteState, saveNotes]);
 
+  // ←/→ step through the list, except while typing (notes, search).
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (e.target.closest?.("input, textarea, select, [contenteditable='true']")) return;
+      if (e.key === "ArrowLeft" && prev) go(prev);
+      else if (e.key === "ArrowRight" && next) go(next);
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [prev, next, go]);
+
   const [noteLabel, noteColor] = NOTE_STATE[noteState];
 
   return (
@@ -135,10 +158,10 @@ export default function ProjectDrawer() {
       >
         {p ? <ProjectTag project={p} /> : <Typography variant="caption" color="text.secondary">Loading…</Typography>}
         <Stack direction="row" spacing={0.5}>
-          <Tooltip title="Previous project">
+          <Tooltip title="Previous project (←)">
             <span><IconButton size="small" disabled={!prev} onClick={() => go(prev)} aria-label="Previous project"><ChevronLeftIcon /></IconButton></span>
           </Tooltip>
-          <Tooltip title="Next project">
+          <Tooltip title="Next project (→)">
             <span><IconButton size="small" disabled={!next} onClick={() => go(next)} aria-label="Next project"><ChevronRightIcon /></IconButton></span>
           </Tooltip>
           <IconButton size="small" onClick={close} aria-label="Close" autoFocus><CloseIcon /></IconButton>
@@ -185,9 +208,16 @@ export default function ProjectDrawer() {
 
             {p.is_pick && p.pick_reason && <Alert severity="info" icon={false}><b>Top pick.</b> {p.pick_reason}</Alert>}
 
-            <Card component="dl" sx={{ m: 0, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+            <Card component="dl" sx={{ m: 0, display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(3, minmax(0, 1fr))" } }}>
               {[["Task", p.task_type.name], ["Level", LEVELS[p.level]], ["Key metric", p.task_type.metric]].map(([k, v], i) => (
-                <Box key={k} sx={{ p: 1.5, borderLeft: i ? 1 : 0, borderColor: "divider" }}>
+                // Widths only: a responsive `borderTop: 1` shorthand would reset the colour.
+                <Box
+                  key={k}
+                  sx={{
+                    p: 1.5, borderStyle: "solid", borderColor: "divider", borderWidth: 0,
+                    borderTopWidth: { xs: i ? 1 : 0, sm: 0 }, borderLeftWidth: { xs: 0, sm: i ? 1 : 0 },
+                  }}
+                >
                   <Typography component="dt" variant="caption" color="text.secondary">{k}</Typography>
                   <Typography component="dd" variant="body2" sx={{ m: 0, fontWeight: 600 }}>{v}</Typography>
                 </Box>
@@ -240,8 +270,12 @@ export default function ProjectDrawer() {
                     <ToggleButton
                       key={k}
                       value={k}
+                      // Soft tint like the status chips: white on amber was hard to read.
                       sx={STATUS_COLOR[k] !== "default" ? {
-                        "&.Mui-selected, &.Mui-selected:hover": { bgcolor: `${STATUS_COLOR[k]}.main`, color: `${STATUS_COLOR[k]}.contrastText` },
+                        "&.Mui-selected, &.Mui-selected:hover": {
+                          bgcolor: (t) => alpha(t.palette[STATUS_COLOR[k]].main, 0.18),
+                          color: (t) => t.palette[STATUS_COLOR[k]][t.palette.mode === "dark" ? "light" : "dark"],
+                        },
                       } : undefined}
                     >
                       {l}
