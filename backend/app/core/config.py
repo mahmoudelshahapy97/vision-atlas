@@ -150,7 +150,11 @@ class Settings(BaseSettings):
     # Every live camera sends target_fps frames a second to models-serve, so
     # this cap is about the model server's capacity, not the API's.
     max_live_cameras: int = 8
-    camera_files_dir: Path = Path("/data/camera-files")  # "file:<name>" sources; looped like a live stream
+    camera_files_dir: Path = Path("/data/camera-files")  # video library (ws<id>/) and "file:<name>" sources
+    # The mediamtx service that serves the library as RTSP (compose sets
+    # rtsp://mediamtx:8554). Empty: library videos are only offered as file:.
+    mediamtx_url: str = ""
+    max_camera_video_mb: int = 250  # per uploaded video (nginx accepts 250 MB)
     rtsp_transport: str = "tcp"
     rtsp_open_timeout: float = 15.0  # seconds without a frame before a source counts as dead
     rtsp_read_failure_limit: int = 30

@@ -1,0 +1,27 @@
+# mediamtx for vision-atlas: serves video files as looping RTSP streams, so a
+# camera can be set up from a recording. Only the api reaches it (no host
+# port). ffmpeg starts when a camera connects and stops ~10 s after it leaves.
+logLevel: warn
+rtspTransports: [tcp]
+rtmp: false
+hls: false
+webrtc: false
+srt: false
+
+paths:
+  # The lab's sample videos: rtsp://mediamtx:8554/street and rtsp://mediamtx:8554/fall
+  "~^(street|fall)$":
+    runOnDemand: >-
+      ffmpeg -hide_banner -loglevel error -re -stream_loop -1 -i /videos/samples/$G1.mp4
+      -c copy -f rtsp -rtsp_transport tcp rtsp://localhost:$RTSP_PORT/$MTX_PATH
+    runOnDemandRestart: yes
+
+  # Each workspace's video library (camera-files/ws<id>/), uploaded in the
+  # console: rtsp://mediamtx:8554/files/ws<id>/<name>.<ext>. Re-encoded to
+  # H.264 (at most 720p, no audio) so any container and codec plays.
+  "~^files/(ws[0-9]+/[A-Za-z0-9_-]+\\.(mp4|mkv|mov|avi|webm|m4v|ts|mpg|mpeg))$":
+    runOnDemand: >-
+      ffmpeg -hide_banner -loglevel error -re -stream_loop -1 -i /videos/files/$G1
+      -an -vf 'scale=-2:min(720\,ih)' -c:v libx264 -preset ultrafast -tune zerolatency -g 50 -pix_fmt yuv420p
+      -f rtsp -rtsp_transport tcp rtsp://localhost:$RTSP_PORT/$MTX_PATH
+    runOnDemandRestart: yes

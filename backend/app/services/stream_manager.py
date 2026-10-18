@@ -67,7 +67,7 @@ class CameraWorker:
         self.workspace_id: int = camera["workspace_id"]
         self.name: str = camera["name"]
         self.pipeline: Optional[str] = camera["pipeline"]
-        self.reader = FrameReader(camera["source_url"])
+        self.reader = FrameReader(camera["source_url"], camera["workspace_id"])
         self.analyzer: Optional[live.LiveAnalyzer] = None
         # Events go to on_output (event_service), each finished minute of
         # metrics to on_metrics (metric_service); both set by the manager.

@@ -57,3 +57,19 @@ class LivePipelines(BaseModel):
     samples: List[str]
     max_live_cameras: int
     live_now: int
+
+
+class VideoItem(BaseModel):
+    name: str
+    size_bytes: Optional[int] = None
+    uploaded_at: Optional[datetime] = None
+    file_source: str          # file:<name> or sample:<name>
+    rtsp_url: Optional[str]   # the same video as a looping RTSP stream (mediamtx), if configured
+    used_by: List[str]        # cameras using it
+
+
+class VideoLibrary(BaseModel):
+    rtsp_enabled: bool
+    max_mb: int
+    videos: List[VideoItem]
+    samples: List[VideoItem]

@@ -174,11 +174,16 @@ logic can be shared, both use the same code: `ZoneMonitor`, `FallWatch`,
 | `ppe_compliance` | `ppe_violation` (warning, at most every 30 s) | `workers`, `violations` |
 | `parking_occupancy` | `lot_full` (info) | `vehicles`, `occupied`, `free` |
 
-**Sources.** `rtsp://`, `rtsps://` or `http(s)://`. For testing:
-`sample:<lab sample video>`, or `file:<name>` under `CAMERA_FILES_DIR`
-(`camera-files/` in compose). File sources loop at their own frame rate.
-Anything else is refused, as are loopback and link-local hosts. Only
-workspace admins see the password in a URL.
+**Sources.** `rtsp://`, `rtsps://` or `http(s)://`; loopback and link-local
+hosts are refused. Recordings come from the workspace's **video library**
+(`services/video_library.py`, `CAMERA_FILES_DIR/ws<id>/`, uploaded through
+`/api/cameras/videos`). A camera uses a recording one of two ways:
+- the RTSP stream mediamtx serves for it, `MEDIAMTX_URL/files/ws<id>/<name>`
+- `file:<name>`, which is looped at the video's own frame rate
+
+Both are checked against the camera's workspace. `sample:<video>` and
+`rtsp://mediamtx:8554/street` or `/fall` are the lab samples. Anything else is
+refused. Only workspace admins see the password in a URL.
 
 **Workers.** `app/services/stream_manager.py` is ported from lost-found. Each
 running camera has one asyncio task that:
@@ -270,6 +275,8 @@ Everything is under `/api`. Interactive docs are at `/docs`.
 | GET · PATCH · DELETE | `/api/cameras/{id}` | ws viewer · ws admin | One camera · edit (a running camera restarts) · delete |
 | POST | `/api/cameras/{id}/start` · `/stop` | ws operator | Run it (now and after restarts) · stop it |
 | GET | `/api/cameras/{id}/snapshot?annotated=` | ws viewer | The latest frame as JPEG (grabbed from the source when not running) |
+| GET · POST | `/api/cameras/videos` | ws viewer · ws admin | The video library (with each video's RTSP URL and the cameras using it) · upload one (multipart `file`, `MAX_CAMERA_VIDEO_MB`) |
+| DELETE | `/api/cameras/videos/{name}` | ws admin | Remove a video no camera uses |
 | POST | `/api/cameras/preview` | ws admin | One JPEG frame from a source before saving (to check it and draw zones) |
 | POST | `/api/cameras/{id}/live-token` | ws viewer | Token + path for the live WebSocket |
 | WS | `/api/ws/cameras/{id}?token=` | token | Live annotated frames |

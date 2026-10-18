@@ -11,7 +11,7 @@ import logging
 import time
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, WebSocket, WebSocketDisconnect, status
 from fastapi.concurrency import run_in_threadpool
 
 from app.api.deps import require_workspace, workspace_access
@@ -24,14 +24,18 @@ from app.schemas.camera_schemas import (
     LivePipelines,
     LiveToken,
     SourcePreview,
+    VideoItem,
+    VideoLibrary,
 )
 from app.services.camera_service import camera_service
 from app.services.event_service import remove_camera_files
 from app.services.model_service import model_service
 from app.services.rtsp_reader import grab_single_frame
 from app.services.stream_manager import LiveCapacityError, encode_jpeg, stream_manager
+from app.services import video_library
 from app.services.user_service import user_service
 from app.utils import camera_sources
+from app.utils.upload_utils import UploadTooLarge, save_upload
 from app.vision import live
 from app.vision.core import PIPELINES, UserError, fit
 
@@ -55,9 +59,9 @@ async def _camera(camera_id: int, access: Dict[str, Any]) -> Dict[str, Any]:
     return camera
 
 
-async def _check_source(source_url: str) -> str:
+async def _check_source(source_url: str, workspace_id: int) -> str:
     try:
-        return await run_in_threadpool(camera_sources.validate, source_url)
+        return await run_in_threadpool(camera_sources.validate, source_url, workspace_id)
     except camera_sources.SourceError as e:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
 
@@ -126,14 +130,84 @@ async def live_pipelines(access: Dict[str, Any] = Depends(require_workspace("vie
 
 
 @router.post("/preview", responses={200: {"content": {"image/jpeg": {}}}})
-async def preview_source(payload: SourcePreview, _: Dict[str, Any] = Depends(require_workspace("admin"))) -> Response:
+async def preview_source(payload: SourcePreview, access: Dict[str, Any] = Depends(require_workspace("admin"))) -> Response:
     """One frame from a source before it is saved, to check it and draw zones on."""
-    source = await _check_source(payload.source_url)
-    frame = await run_in_threadpool(grab_single_frame, source, 12.0)
+    wid = access["workspace"]["id"]
+    source = await _check_source(payload.source_url, wid)
+    frame = await run_in_threadpool(grab_single_frame, source, 12.0, wid)
     if frame is None:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Couldn't read a frame from that source.")
     jpeg = await run_in_threadpool(lambda: encode_jpeg(fit(frame, config.camera_max_side), 85))
     return Response(jpeg, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+
+# ------------------------------------------------------------- video library
+
+def _video_out(v: Dict[str, Any], cameras: List[Dict[str, Any]]) -> Dict[str, Any]:
+    sources = {v["file_source"], v.get("rtsp_url")}
+    return {**v, "used_by": [c["name"] for c in cameras if c["source_url"] in sources]}
+
+
+@router.get("/videos", response_model=VideoLibrary)
+async def list_videos(access: Dict[str, Any] = Depends(require_workspace("viewer"))) -> Dict[str, Any]:
+    """The workspace's uploaded recordings and the lab samples, each with the
+    sources a camera can use: file:<name> and, with mediamtx, an RTSP URL."""
+    wid = access["workspace"]["id"]
+    cameras = await camera_service.list(wid)
+    return {
+        "rtsp_enabled": bool(config.mediamtx_url),
+        "max_mb": config.max_camera_video_mb,
+        "videos": [_video_out(v, cameras) for v in await run_in_threadpool(video_library.list_videos, wid)],
+        "samples": [_video_out(v, cameras) for v in video_library.sample_streams()],
+    }
+
+
+@router.post("/videos", response_model=VideoItem, status_code=status.HTTP_201_CREATED)
+async def upload_video(file: UploadFile = File(...), access: Dict[str, Any] = Depends(require_workspace("admin"))) -> Dict[str, Any]:
+    """Add a recording to the library; it can then run as a looping camera."""
+    wid = access["workspace"]["id"]
+    folder = video_library.folder(wid)
+    folder.mkdir(parents=True, exist_ok=True)
+    try:
+        taken = {p.name.lower() for p in folder.iterdir()}
+        name = video_library.safe_name(file.filename, taken)
+    except video_library.VideoError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+    final = folder / name
+    partial = folder / f".{name}.part"  # hidden from the list (and from mediamtx) until checked
+    try:
+        await save_upload(file, partial, config.max_camera_video_mb * 1024 * 1024)
+    except UploadTooLarge:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Videos larger than {config.max_camera_video_mb} MB aren't supported.",
+        )
+    if not await run_in_threadpool(video_library.is_video, partial):
+        partial.unlink(missing_ok=True)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="That file isn't a video we can play.")
+    partial.rename(final)
+    video = next(v for v in await run_in_threadpool(video_library.list_videos, wid) if v["name"] == name)
+    return {**video, "used_by": []}
+
+
+@router.delete("/videos/{name}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_video(name: str, access: Dict[str, Any] = Depends(require_workspace("admin"))) -> Response:
+    wid = access["workspace"]["id"]
+    try:
+        path = video_library.path_of(wid, name)
+    except video_library.VideoError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    if not path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such video.")
+    video = next(v for v in await run_in_threadpool(video_library.list_videos, wid) if v["name"] == name)
+    used = _video_out(video, await camera_service.list(wid))["used_by"]
+    if used:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"{', '.join(used)} {'uses' if len(used) == 1 else 'use'} this video. Change or delete the camera first.",
+        )
+    path.unlink(missing_ok=True)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ------------------------------------------------------------------------ CRUD
@@ -154,7 +228,7 @@ async def create_camera(payload: CameraCreate, access: Dict[str, Any] = Depends(
     if await camera_service.name_taken(ws["id"], payload.name):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A camera with this name already exists here.")
     fields = payload.model_dump()
-    fields["source_url"] = await _check_source(payload.source_url)
+    fields["source_url"] = await _check_source(payload.source_url, ws["id"])
     fields["params"] = await _check_pipeline(ws, payload.pipeline, payload.params)
     try:
         return _out(await camera_service.create(ws["id"], fields, access["user"]["id"]), access["role"])
@@ -177,7 +251,7 @@ async def update_camera(
     if "name" in fields and await camera_service.name_taken(camera["workspace_id"], fields["name"], camera_id):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A camera with this name already exists here.")
     if "source_url" in fields:
-        fields["source_url"] = await _check_source(fields["source_url"])
+        fields["source_url"] = await _check_source(fields["source_url"], camera["workspace_id"])
     if "pipeline" in fields or "params" in fields:
         pipeline = fields.get("pipeline", camera["pipeline"])
         params = fields.get("params", camera["params"] if pipeline == camera["pipeline"] else {})
@@ -242,7 +316,7 @@ async def snapshot(
     elif worker and worker.raw is not None:
         jpeg = await run_in_threadpool(encode_jpeg, worker.raw, 88)
     else:
-        frame = await run_in_threadpool(grab_single_frame, camera["source_url"], 12.0)
+        frame = await run_in_threadpool(grab_single_frame, camera["source_url"], 12.0, camera["workspace_id"])
         if frame is None:
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Couldn't read a frame from this camera.")
         jpeg = await run_in_threadpool(lambda: encode_jpeg(fit(frame, config.camera_max_side), 88))

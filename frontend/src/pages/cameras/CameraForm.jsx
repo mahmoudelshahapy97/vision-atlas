@@ -12,10 +12,13 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
+import MovieIcon from "@mui/icons-material/Movie";
 import SaveIcon from "@mui/icons-material/Save";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
 
 import { cameras } from "../../api/endpoints";
 import { Stage } from "../../components/cameras/CameraBits";
+import { VIDEO_ACCEPT, sourceOf, uploadVideo } from "../../components/cameras/VideoLibrary";
 import { EmptyState, ErrorState, Loading } from "../../components/DataStates";
 import CanvasEditor from "../../components/lab/CanvasEditor";
 import ParamForm, { GEOMETRY } from "../../components/lab/ParamForm";
@@ -46,6 +49,9 @@ export default function CameraForm() {
   const { active, hasWsRole } = useWorkspace();
   const catalogue = useAsync((opts) => (active ? cameras.pipelines(opts) : null), [active?.id]);
   const existing = useAsync((opts) => (editing && active ? cameras.get(id, opts) : null), [id, active?.id]);
+  const library = useAsync((opts) => (active ? cameras.videos(opts) : null), [active?.id]);
+  const videoInput = useRef(null);
+  const [uploading, setUploading] = useState(false);
 
   const [form, setForm] = useState(EMPTY);
   const [values, setValues] = useState({});
@@ -88,6 +94,28 @@ export default function CameraForm() {
   function preview() {
     const unchanged = editing && existing.data && form.source_url === existing.data.source_url;
     showFrame(() => (unchanged ? cameras.snapshot(existing.data.id) : cameras.preview(form.source_url.trim())));
+  }
+
+  function pickSource(src) {
+    setForm((f) => ({ ...f, source_url: src }));
+    showFrame(() => cameras.preview(src));
+  }
+
+  async function onVideo(e) {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    try {
+      const v = await uploadVideo(file);
+      library.reload();
+      toast(`Uploaded ${v.name}.`);
+      pickSource(sourceOf(v));
+    } catch (err) {
+      toast(err.message, "err");
+    } finally {
+      setUploading(false);
+    }
   }
 
   function choosePipeline(name) {
@@ -178,15 +206,24 @@ export default function CameraForm() {
                 value={form.source_url}
                 onChange={(e) => setForm({ ...form, source_url: e.target.value })}
                 placeholder="rtsp://user:password@192.168.1.20:554/stream1"
-                helperText="RTSP or HTTP stream, file:<name> from camera-files/, or a sample video."
+                helperText={library.data?.rtsp_enabled
+                  ? "An RTSP or HTTP camera. Recordings play as looping RTSP streams (rtsp://mediamtx:8554/…)."
+                  : "An RTSP or HTTP camera, or a recording (file:<name>)."}
                 required
                 fullWidth
                 inputProps={{ spellCheck: false }}
               />
-              <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
-                {catalogue.data.samples.map((s) => (
-                  <Chip key={s} size="small" variant="outlined" label={`sample:${s}`} onClick={() => setForm({ ...form, source_url: `sample:${s}` })} />
+              <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" alignItems="center" sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">Or a recording:</Typography>
+                {[...(library.data?.videos || []), ...(library.data?.samples || [])].map((v) => (
+                  <Chip key={v.file_source} size="small" variant={form.source_url === sourceOf(v) ? "filled" : "outlined"}
+                    color={form.source_url === sourceOf(v) ? "primary" : "default"} icon={<MovieIcon />}
+                    label={v.name} onClick={() => pickSource(sourceOf(v))} />
                 ))}
+                <input ref={videoInput} hidden type="file" accept={VIDEO_ACCEPT} onChange={onVideo} />
+                <Button size="small" startIcon={<UploadFileIcon />} disabled={uploading} onClick={() => videoInput.current.click()}>
+                  {uploading ? "Uploading…" : "Upload a video"}
+                </Button>
               </Stack>
             </Box>
             <TextField select label="Pipeline" value={form.pipeline} onChange={(e) => choosePipeline(e.target.value)}

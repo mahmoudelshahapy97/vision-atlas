@@ -4,9 +4,13 @@
 A source is one of
   rtsp://, rtsps://, http://, https://   a camera or stream on the network
   sample:<video>                          a lab sample video (street.mp4, fall.mp4), looped
-  file:<name>                             a video under CAMERA_FILES_DIR, looped
+  file:<name>                             a video of the workspace's library
+                                          (CAMERA_FILES_DIR/ws<id>/), or one put
+                                          straight into CAMERA_FILES_DIR, looped
 Anything else (a bare path, file://, a webcam index) is refused: a workspace
-admin must not be able to make the API open arbitrary files.
+admin must not be able to make the API open arbitrary files. The library is
+also served over RTSP by mediamtx (rtsp://mediamtx:8554/files/ws<id>/<name>),
+and those URLs only work for cameras of the same workspace.
 """
 
 import ipaddress
@@ -37,6 +41,36 @@ def _local(base: Path, name: str) -> Path:
     return path
 
 
+def workspace_dir(workspace_id: int) -> Path:
+    return config.camera_files_dir / f"ws{workspace_id}"
+
+
+def _library_file(name: str, workspace_id: Optional[int]) -> Path:
+    """file:<name>: the workspace's own copy first, then the shared folder."""
+    if workspace_id is not None:
+        try:
+            return _local(workspace_dir(workspace_id), name)
+        except SourceError:
+            pass
+    path = _local(config.camera_files_dir, name)
+    if path.parent != config.camera_files_dir.resolve():  # not another workspace's ws<n>/ file
+        raise SourceError(f"No video named '{name}' is available.")
+    return path
+
+
+def mediamtx_host() -> Optional[str]:
+    return urlsplit(config.mediamtx_url).hostname if config.mediamtx_url else None
+
+
+def _check_mediamtx_path(parts, workspace_id: Optional[int]) -> None:
+    """Library streams on mediamtx belong to one workspace."""
+    if parts.hostname != mediamtx_host() or not parts.path.startswith("/files/"):
+        return
+    owner = parts.path.split("/")[2] if parts.path.count("/") >= 3 else ""
+    if workspace_id is None or owner != f"ws{workspace_id}":
+        raise SourceError("That video belongs to another workspace.")
+
+
 def _check_host(host: Optional[str]) -> None:
     """Cameras live on private networks, so those are fine; loopback and
     link-local (cloud metadata at 169.254.169.254) are not."""
@@ -52,28 +86,30 @@ def _check_host(host: Optional[str]) -> None:
             raise SourceError("That address isn't allowed for a camera.")
 
 
-def validate(source: str) -> str:
+def validate(source: str, workspace_id: Optional[int] = None) -> str:
     """The cleaned source string, or SourceError."""
     source = (source or "").strip()
     if source.startswith("sample:"):
         _local(SAMPLES_DIR, source[7:])
         return source
     if source.startswith("file:") and not source.startswith("file://"):
-        _local(config.camera_files_dir, source[5:])
+        _library_file(source[5:], workspace_id)
         return source
     parts = urlsplit(source)
     if parts.scheme.lower() not in NETWORK_SCHEMES:
         raise SourceError("Use an rtsp://, rtsps://, http(s):// URL, sample:<video> or file:<name>.")
-    _check_host(parts.hostname)
+    _check_mediamtx_path(parts, workspace_id)
+    if parts.hostname != mediamtx_host():  # our own RTSP server is on purpose
+        _check_host(parts.hostname)
     return source
 
 
-def resolve(source: str) -> tuple[str, bool]:
+def resolve(source: str, workspace_id: Optional[int] = None) -> tuple[str, bool]:
     """(what OpenCV opens, whether it is a local file to loop)."""
     if source.startswith("sample:"):
         return str(_local(SAMPLES_DIR, source[7:])), True
     if source.startswith("file:"):
-        return str(_local(config.camera_files_dir, source[5:])), True
+        return str(_library_file(source[5:], workspace_id)), True
     return source, False
 
 

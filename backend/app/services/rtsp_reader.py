@@ -31,8 +31,9 @@ import cv2  # noqa: E402  - must follow the env var above
 class FrameReader:
     """One video source. Reopens itself when the stream drops."""
 
-    def __init__(self, source: str) -> None:
+    def __init__(self, source: str, workspace_id: Optional[int] = None) -> None:
         self.source = source
+        self.workspace_id = workspace_id  # whose file: library to look in
         self.label = camera_sources.redact(source)
         self._capture: Optional[cv2.VideoCapture] = None
         self._loop_file = False
@@ -48,7 +49,7 @@ class FrameReader:
         """Returns False instead of raising, so callers can back off."""
         self.release()
         try:
-            target, self._loop_file = camera_sources.resolve(self.source)
+            target, self._loop_file = camera_sources.resolve(self.source, self.workspace_id)
             capture = cv2.VideoCapture(target, cv2.CAP_FFMPEG)
             if not capture.isOpened():
                 logger.warning("Could not open source %s", self.label)
@@ -130,10 +131,10 @@ class FrameReader:
         return self.consecutive_failures >= config.rtsp_read_failure_limit
 
 
-def grab_single_frame(source: str, timeout: Optional[float] = None) -> Optional[np.ndarray]:
+def grab_single_frame(source: str, timeout: Optional[float] = None, workspace_id: Optional[int] = None) -> Optional[np.ndarray]:
     """Open a source just long enough to pull one frame (snapshots, the camera form's preview)."""
     deadline = time.time() + (timeout or config.rtsp_open_timeout)
-    reader = FrameReader(source)
+    reader = FrameReader(source, workspace_id)
     try:
         if not reader.open():
             return None

@@ -19,6 +19,7 @@ from app.schemas.workspace_schemas import (
 from app.services.camera_service import camera_service
 from app.services.event_service import remove_camera_files
 from app.services.stream_manager import stream_manager
+from app.services import video_library
 from app.services.user_service import user_service
 from app.services.workspace_service import workspace_service
 from app.vision import live
@@ -119,6 +120,7 @@ async def delete_workspace(workspace_id: int, _: Dict[str, Any] = Depends(requir
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not found.")
     for c in cameras:
         await remove_camera_files(c["id"])
+    video_library.remove_workspace(workspace_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

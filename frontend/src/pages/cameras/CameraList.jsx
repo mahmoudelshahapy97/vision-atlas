@@ -24,6 +24,7 @@ import VideocamIcon from "@mui/icons-material/Videocam";
 
 import { cameras } from "../../api/endpoints";
 import { CameraStateChip, metricSummary } from "../../components/cameras/CameraBits";
+import VideoLibrary from "../../components/cameras/VideoLibrary";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { EmptyState, ErrorState } from "../../components/DataStates";
 import PageHeader from "../../components/PageHeader";
@@ -42,6 +43,7 @@ export default function CameraList() {
   const wid = active?.id;
   const list = usePolling((opts) => cameras.list(opts), { intervalMs: 5000, deps: [wid], enabled: Boolean(wid) });
   const catalogue = useAsync((opts) => (wid ? cameras.pipelines(opts) : null), [wid]);
+  const library = useAsync((opts) => (wid ? cameras.videos(opts) : null), [wid]);
   const titles = useMemo(
     () => Object.fromEntries((catalogue.data?.pipelines || []).map((p) => [p.name, p.title])),
     [catalogue.data]
@@ -80,6 +82,7 @@ export default function CameraList() {
       await cameras.remove(c.id);
       toast(`Deleted ${c.name}.`);
       list.reload();
+      library.reload();
     } catch (e) {
       toast(e.message, "err");
     } finally {
@@ -182,10 +185,16 @@ export default function CameraList() {
           <EmptyState
             icon={<VideocamIcon />}
             title="No cameras yet"
-            description={canEdit ? "Add an RTSP camera, or try one of the sample videos." : "A workspace admin adds cameras."}
+            description={canEdit ? "Add an RTSP camera, or upload a recording below and run a camera on it." : "A workspace admin adds cameras."}
             action={canEdit && <Button component={RouterLink} to="/cameras/new" variant="contained" startIcon={<AddIcon />}>Add camera</Button>}
           />
         )
+      )}
+
+      {canEdit && (
+        <Box sx={{ mt: 2 }}>
+          <VideoLibrary library={library.data} onChange={library.reload} canEdit={canEdit} />
+        </Box>
       )}
 
       <ConfirmDialog

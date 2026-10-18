@@ -30,6 +30,7 @@ os.environ["ADMIN_PASSWORD"] = "admin-pass-123"
 os.environ["JWT_SECRET"] = "test-secret"
 os.environ["LOG_FILE_PATH"] = ""
 os.environ["MEDIA_DIR"] = str(Path(tempfile.mkdtemp()) / "media")
+os.environ["CAMERA_FILES_DIR"] = tempfile.mkdtemp()  # never the stack's /data volume
 os.environ.setdefault("LAB_WORKERS", "2")
 os.environ.setdefault("MAX_RUNS_IN_FLIGHT", "50")
 

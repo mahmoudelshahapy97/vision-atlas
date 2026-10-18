@@ -123,10 +123,26 @@ docker compose run --rm --no-deps -v ./models-serve/tests:/app/tests \
 cd frontend && npm run build                                          # console builds
 ```
 
-To try cameras without real ones, run `docker compose --profile testing up -d mediamtx`.
-It serves the sample videos as `rtsp://mediamtx:8554/street` and
-`rtsp://mediamtx:8554/fall`. It publishes no host port. A camera can also use
-`sample:street.mp4`, or `file:<name>` for a video you put in `camera-files/`.
+### Videos as RTSP cameras
+
+The `mediamtx` service plays video files as looping RTSP streams, so a camera
+can run on a recording exactly as it would on a real camera.
+- Upload a video under **Cameras → Video library**, or with **Upload a video**
+  in the camera form. It streams at `rtsp://mediamtx:8554/files/ws<id>/<name>`,
+  and the form fills that URL in.
+- Formats: mp4, mkv, mov, avi, webm, m4v, ts and mpg, up to 250 MB.
+- Every video is re-encoded on the fly to H.264, at most 720p, with no audio.
+- The lab samples always stream at `rtsp://mediamtx:8554/street` and
+  `rtsp://mediamtx:8554/fall`.
+
+Each workspace's library is a folder, `camera-files/ws<id>/`. Its streams only
+work for cameras of that workspace. The API writes uploads as root, so remove
+them by hand with `sudo`.
+
+mediamtx publishes no host port, so it can't clash with anything on this
+machine. ffmpeg runs only while a camera is reading. Paths and encoding are
+in `mediamtx/mediamtx.yml`. Set `MEDIAMTX_URL=` (empty) in `.env` to offer
+recordings as `file:` sources only.
 
 ## CI/CD
 

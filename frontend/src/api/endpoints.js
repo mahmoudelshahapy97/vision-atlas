@@ -60,6 +60,11 @@ export const cameras = {
   /** JPEG Blobs */
   snapshot: (id, annotated = false, opts) => apiBlob(`/cameras/${id}/snapshot${annotated ? "?annotated=true" : ""}`, opts),
   preview: (sourceUrl) => apiBlob("/cameras/preview", { method: "POST", body: { source_url: sourceUrl } }),
+  /** The workspace's video library (recordings a camera can loop, as file: or RTSP). */
+  videos: (opts) => api("/cameras/videos", opts),
+  /** FormData: file. */
+  uploadVideo: (formData) => apiForm("/cameras/videos", formData),
+  removeVideo: (name) => api(`/cameras/videos/${encodeURIComponent(name)}`, { method: "DELETE" }),
 };
 
 /** Workspace-scoped, like cameras. */
