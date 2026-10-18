@@ -146,6 +146,25 @@ SCHEMA_UPGRADES: tuple = (
     );
     """,
     "CREATE INDEX IF NOT EXISTS idx_media_object_run ON media_object (run_id);",
+    # accounts: deactivation, token revocation, refresh sessions
+    "ALTER TABLE app_user ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;",
+    "ALTER TABLE app_user ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 1;",
+    "ALTER TABLE app_user ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;",
+    "ALTER TABLE app_user ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();",
+    """
+    CREATE TABLE IF NOT EXISTS refresh_session (
+        id          SERIAL PRIMARY KEY,
+        user_id     INTEGER NOT NULL REFERENCES app_user (id) ON DELETE CASCADE,
+        jti         TEXT NOT NULL UNIQUE,
+        expires_at  TIMESTAMPTZ NOT NULL,
+        revoked_at  TIMESTAMPTZ,
+        rotated     BOOLEAN NOT NULL DEFAULT FALSE,  -- revoked by a refresh (vs. a sign-out)
+        user_agent  TEXT,
+        ip_address  TEXT,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_refresh_session_user ON refresh_session (user_id) WHERE revoked_at IS NULL;",
 )
 
 

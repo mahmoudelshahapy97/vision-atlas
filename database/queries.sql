@@ -159,11 +159,34 @@ SELECT * FROM app_user WHERE email = $1;
 -- POST /api/auth/register, and the bootstrap admin at startup
 INSERT INTO app_user (email, name, password_hash, role)
 VALUES ($1, $2, $3, $4)
-RETURNING id, email, name, role, created_at;
+RETURNING id, email, name, role, is_active, token_version, last_login, created_at, updated_at;
 
 -- :name user_service.get_by_id
--- every authenticated request (api/deps.py re-reads the row)
-SELECT id, email, name, role, created_at FROM app_user WHERE id = $1;
+-- every authenticated request (api/deps.py re-reads the row and compares
+-- is_active and the token's tv claim with token_version)
+SELECT id, email, name, role, is_active, token_version, last_login, created_at, updated_at
+FROM app_user WHERE id = $1;
+
+-- :name user_service.bump_token_version
+-- POST /api/auth/logout-all; also set_password and update_user (role/active change)
+UPDATE app_user SET token_version = token_version + 1, updated_at = NOW() WHERE id = $1;
+
+-- :name user_service.count_admins
+-- the last-admin guard in PATCH/DELETE /api/users/{id}
+SELECT COUNT(*) FROM app_user WHERE role = 'admin' AND is_active AND id <> COALESCE($1, -1);
+
+-- :name auth_service.token_response
+-- every sign-in, registration, refresh and password change records the new refresh token
+INSERT INTO refresh_session (user_id, jti, expires_at, user_agent, ip_address)
+VALUES ($1, $2, $3, $4, $5);
+
+-- :name auth_service.refresh (rotate)
+-- POST /api/auth/refresh: 0 rows means another refresh already used this token
+UPDATE refresh_session SET revoked_at = NOW(), rotated = TRUE WHERE jti = $1 AND revoked_at IS NULL;
+
+-- :name auth_service.revoke_sessions
+-- sign out everywhere, password change or reset, deactivation, and a replayed refresh token
+UPDATE refresh_session SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL;
 
 
 -- ===========================================================================

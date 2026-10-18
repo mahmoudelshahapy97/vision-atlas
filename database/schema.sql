@@ -101,7 +101,8 @@ CREATE INDEX IF NOT EXISTS idx_project_technology_tech ON project_technology (te
 -- app_user — a person who signs in to track progress and run labs
 --
 -- Anyone can register (role 'user'); the bootstrap admin is created by the
--- API from ADMIN_EMAIL / ADMIN_PASSWORD on startup.
+-- API from ADMIN_EMAIL / ADMIN_PASSWORD on startup. Admins manage accounts
+-- at /api/users.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS app_user (
     id             SERIAL PRIMARY KEY,
@@ -109,8 +110,34 @@ CREATE TABLE IF NOT EXISTS app_user (
     name           TEXT NOT NULL,
     password_hash  TEXT NOT NULL,          -- bcrypt
     role           TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    is_active      BOOLEAN NOT NULL DEFAULT TRUE,
+    -- Every access token carries it; bumping it (sign out everywhere, password
+    -- change, role change, deactivation) revokes them all at once.
+    token_version  INTEGER NOT NULL DEFAULT 1,
+    last_login     TIMESTAMPTZ,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- ---------------------------------------------------------------------------
+-- refresh_session — one signed-in device; its refresh token's jti
+--
+-- Refresh tokens rotate: each use revokes the row and creates a new one.
+-- Presenting a rotated jti again (a stolen token replayed) revokes them all.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS refresh_session (
+    id          SERIAL PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES app_user (id) ON DELETE CASCADE,
+    jti         TEXT NOT NULL UNIQUE,
+    expires_at  TIMESTAMPTZ NOT NULL,
+    revoked_at  TIMESTAMPTZ,
+    rotated     BOOLEAN NOT NULL DEFAULT FALSE,  -- revoked by a refresh (vs. a sign-out)
+    user_agent  TEXT,
+    ip_address  TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_session_user ON refresh_session (user_id) WHERE revoked_at IS NULL;
 
 -- ---------------------------------------------------------------------------
 -- user_project — one user's status and notes on one project

@@ -12,19 +12,23 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import KeyIcon from "@mui/icons-material/Key";
 import LogoutIcon from "@mui/icons-material/Logout";
+import PhonelinkEraseIcon from "@mui/icons-material/PhonelinkErase";
 
 import { useAuth } from "../auth/AuthContext";
+import PasswordDialog from "./PasswordDialog";
 import { useToast } from "./Toast";
 
 const ROLE_COLOR = { admin: "error", user: "primary" };
 
 /** Avatar menu when signed in; sign-in and register buttons when not. */
 export function UserMenu() {
-  const { user, logout } = useAuth();
+  const { user, logout, changePassword } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const [anchorEl, setAnchorEl] = useState(null);
+  const [pwOpen, setPwOpen] = useState(false);
 
   if (!user) {
     return (
@@ -46,11 +50,17 @@ export function UserMenu() {
 
   const initial = (user.name || user.email || "?").charAt(0).toUpperCase();
 
-  const handleLogout = () => {
+  const handleLogout = async (everywhere = false) => {
     setAnchorEl(null);
-    logout();
-    toast("Signed out.");
+    await logout({ everywhere });
+    toast(everywhere ? "Signed out on every device." : "Signed out.");
     navigate("/", { replace: true });
+  };
+
+  const handleChangePassword = async (next, current) => {
+    await changePassword(current, next);
+    setPwOpen(false);
+    toast("Password changed. Your other sessions were signed out.");
   };
 
   return (
@@ -69,13 +79,39 @@ export function UserMenu() {
           <Chip size="small" label={user.role} color={ROLE_COLOR[user.role] || "default"} />
         </Box>
         <Divider />
-        <MenuItem onClick={handleLogout}>
+        <MenuItem
+          onClick={() => {
+            setAnchorEl(null);
+            setPwOpen(true);
+          }}
+        >
+          <ListItemIcon>
+            <KeyIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Change password</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleLogout(true)}>
+          <ListItemIcon>
+            <PhonelinkEraseIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Sign out everywhere</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleLogout(false)}>
           <ListItemIcon>
             <LogoutIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Sign out</ListItemText>
         </MenuItem>
       </Menu>
+      <PasswordDialog
+        open={pwOpen}
+        title="Change your password"
+        description="Your other devices are signed out; this one stays signed in."
+        requireCurrent
+        submitLabel="Change password"
+        onSubmit={handleChangePassword}
+        onClose={() => setPwOpen(false)}
+      />
     </>
   );
 }

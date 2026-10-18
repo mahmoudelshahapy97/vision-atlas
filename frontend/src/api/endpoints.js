@@ -13,6 +13,23 @@ export const auth = {
   me: (opts) => api("/auth/me", opts),
   login: (email, password) => api("/auth/login", { method: "POST", body: { email, password } }),
   register: (name, email, password) => api("/auth/register", { method: "POST", body: { name, email, password } }),
+  logout: (refreshToken) => api("/auth/logout", { method: "POST", body: { refresh_token: refreshToken } }),
+  logoutAll: () => api("/auth/logout-all", { method: "POST" }),
+  changePassword: (currentPassword, newPassword) =>
+    api("/auth/change-password", {
+      method: "POST",
+      body: { current_password: currentPassword, new_password: newPassword },
+    }),
+};
+
+export const users = {
+  list: (params, opts) => api("/users", { params, ...opts }),
+  get: (id, opts) => api(`/users/${id}`, opts),
+  create: (payload) => api("/users", { method: "POST", body: payload }),
+  update: (id, payload) => api(`/users/${id}`, { method: "PATCH", body: payload }),
+  resetPassword: (id, newPassword) =>
+    api(`/users/${id}/reset-password`, { method: "POST", body: { new_password: newPassword } }),
+  remove: (id) => api(`/users/${id}`, { method: "DELETE" }),
 };
 
 export const catalog = {
@@ -62,4 +79,4 @@ export const models = {
   remove: (id) => api(`/models/custom/${id}`, { method: "DELETE" }),
 };
 
-export default { health, auth, catalog, projects, progress, me, lab, runs, models };
+export default { health, auth, users, catalog, projects, progress, me, lab, runs, models };

@@ -17,6 +17,7 @@ const Board = lazy(() => import("../pages/Board"));
 const Login = lazy(() => import("../pages/Login"));
 const ProjectList = lazy(() => import("../pages/admin/ProjectList"));
 const ProjectForm = lazy(() => import("../pages/admin/ProjectForm"));
+const Users = lazy(() => import("../pages/admin/Users"));
 const NotFound = lazy(() => import("../pages/NotFound"));
 
 export default function AppRouter({ mode, onToggleMode }) {
@@ -49,6 +50,7 @@ export default function AppRouter({ mode, onToggleMode }) {
             <Route path="new" element={<RequireAuth minimum="admin"><ProjectForm /></RequireAuth>} />
             <Route path=":id/edit" element={<RequireAuth minimum="admin"><ProjectForm /></RequireAuth>} />
           </Route>
+          <Route path="/users" element={<RequireAuth minimum="admin"><Users /></RequireAuth>} />
 
           <Route path="*" element={<NotFound />} />
         </Route>

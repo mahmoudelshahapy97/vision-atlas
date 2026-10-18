@@ -8,7 +8,13 @@ import pytest
 
 from app.api.deps import ROLE_LEVEL
 from app.core import security as security_module
-from app.core.security import create_token, decode_token, hash_password, verify_password
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    hash_password,
+    verify_password,
+)
 
 
 # ------------------------------------------------------------------ passwords
@@ -27,14 +33,23 @@ def test_an_empty_or_malformed_hash_is_rejected_without_raising(bad_hash):
 
 # ------------------------------------------------------------------ tokens
 
-def test_a_token_round_trips_its_subject_and_role():
-    payload = decode_token(create_token(42, "admin"))
+def test_a_token_round_trips_its_subject_role_and_version():
+    payload = decode_token(create_access_token(42, "admin", 7))
     assert payload["sub"] == "42"
     assert payload["role"] == "admin"
+    assert payload["tv"] == 7
+
+
+def test_access_and_refresh_tokens_are_not_interchangeable():
+    refresh, jti = create_refresh_token(5)
+    payload = decode_token(refresh, "refresh")
+    assert payload["sub"] == "5" and payload["jti"] == jti
+    assert decode_token(refresh) is None
+    assert decode_token(create_access_token(5, "user"), "refresh") is None
 
 
 def test_a_tampered_or_garbage_token_is_rejected():
-    token = create_token(1, "user")
+    token = create_access_token(1, "user")
     assert decode_token(token[:-2] + ("A" if token[-1] != "A" else "B") + token[-1]) is None
     assert decode_token("not.a.token") is None
 
@@ -46,7 +61,7 @@ def test_a_token_signed_with_another_key_is_rejected():
 
 def test_a_non_numeric_subject_is_rejected():
     token = jwt.encode(
-        {"sub": "admin", "exp": int(time.time()) + 60},
+        {"sub": "admin", "typ": "access", "jti": "x", "exp": int(time.time()) + 60},
         security_module.config.jwt_secret,
         algorithm=security_module.config.jwt_algorithm,
     )
@@ -54,8 +69,8 @@ def test_a_non_numeric_subject_is_rejected():
 
 
 def test_an_expired_token_is_rejected(monkeypatch):
-    monkeypatch.setattr(security_module.config, "jwt_expire_minutes", -1)
-    assert decode_token(create_token(1, "user")) is None
+    monkeypatch.setattr(security_module.config, "access_token_expire_minutes", -1)
+    assert decode_token(create_access_token(1, "user")) is None
 
 
 # ------------------------------------------------------------------ roles

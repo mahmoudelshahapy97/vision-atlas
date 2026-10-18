@@ -15,16 +15,30 @@ export class ApiError extends Error {
 }
 
 let token = null;
+let refreshToken = null;
 let unauthorizedHandler = null;
+let tokensHandler = null;
+let refreshing = null;
 
-export function setToken(t) {
-  token = t;
+export function setTokens(access, refresh) {
+  token = access;
+  refreshToken = refresh;
 }
 
-/** Called when a request made with a token comes back 401 (expired or revoked session).
- *  Kept as a callback so the API layer doesn't import the auth context. */
+export const getAccessToken = () => token;
+export const getRefreshToken = () => refreshToken;
+
+/** Called when a request made with a token comes back 401 and the session
+ *  can't be renewed (expired or revoked). Kept as a callback so the API layer
+ *  doesn't import the auth context. */
 export function onUnauthorized(fn) {
   unauthorizedHandler = fn;
+}
+
+/** Called with the /auth/refresh body each time the tokens rotate, so the
+ *  auth context can persist them. */
+export function onTokens(fn) {
+  tokensHandler = fn;
 }
 
 /** Absolute URL for media and sample files returned by the API ("/media/...", "/api/lab/samples/..."). */
@@ -42,20 +56,48 @@ export function errorMessage(data, status) {
 
 export const isAbort = (e) => e?.name === "AbortError";
 
-async function send(url, init) {
+/** Trades the refresh token for a new pair. Concurrent 401s share one call:
+ *  the refresh token rotates, so a second call with the old one would fail. */
+function renewSession() {
+  if (!refreshing) {
+    const presented = refreshToken;
+    refreshing = fetch(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: presented }),
+    })
+      .then(async (res) => {
+        if (!res.ok) return false;
+        const data = await res.json();
+        setTokens(data.access_token, data.refresh_token);
+        tokensHandler?.(data);
+        return true;
+      })
+      .catch(() => false)
+      .finally(() => {
+        refreshing = null;
+      });
+  }
+  return refreshing;
+}
+
+/** `makeInit()` builds the fetch options with the current token, so a request
+ *  that hit an expired access token can be replayed once after a refresh. */
+async function send(url, makeInit, retry = true) {
   let res;
   try {
-    res = await fetch(url, init);
+    res = await fetch(url, makeInit());
   } catch (e) {
     if (isAbort(e)) throw e;
     throw new ApiError("Can't reach the server. Check that the backend is running.", 0);
   }
+  if (res.status === 401 && token && retry) {
+    if (refreshToken && (await renewSession())) return send(url, makeInit, false);
+    unauthorizedHandler?.();
+  }
   if (res.status === 204) return null;
   const data = await res.json().catch(() => null);
-  if (!res.ok) {
-    if (res.status === 401 && token && unauthorizedHandler) unauthorizedHandler();
-    throw new ApiError(errorMessage(data, res.status), res.status);
-  }
+  if (!res.ok) throw new ApiError(errorMessage(data, res.status), res.status);
   return data;
 }
 
@@ -74,17 +116,21 @@ export async function api(path, { method = "GET", body, params, signal } = {}) {
     const s = sp.toString();
     if (s) url += `?${s}`;
   }
-  const headers = authHeaders();
-  if (body !== undefined) headers["Content-Type"] = "application/json";
-  return send(url, { method, headers, signal, body: body !== undefined ? JSON.stringify(body) : undefined });
+  const json = body !== undefined ? JSON.stringify(body) : undefined;
+  return send(url, () => ({
+    method,
+    signal,
+    body: json,
+    headers: { ...authHeaders(), ...(json !== undefined ? { "Content-Type": "application/json" } : {}) },
+  }));
 }
 
 /** Multipart POST (uploads). The browser sets the multipart Content-Type. */
 export async function apiForm(path, formData) {
-  return send(API_BASE + path, { method: "POST", headers: authHeaders(), body: formData });
+  return send(API_BASE + path, () => ({ method: "POST", headers: authHeaders(), body: formData }));
 }
 
 /** GET outside the /api prefix, for routes FastAPI mounts on the app root (/health). */
 export async function rootGet(path, { signal } = {}) {
-  return send(API_ORIGIN + path, { signal });
+  return send(API_ORIGIN + path, () => ({ signal }));
 }

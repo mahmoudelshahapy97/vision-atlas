@@ -61,7 +61,10 @@ class Settings(BaseSettings):
     #   python -c "import secrets; print(secrets.token_urlsafe(48))"
     jwt_secret: str
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 60 * 24 * 7
+    # Access tokens are short-lived; the console renews them with the refresh
+    # token (rotated on every use, revocable: refresh_session).
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 7
 
     # When both are set, this admin account is created on startup if it does
     # not exist yet -- see ensure_bootstrap_admin() in

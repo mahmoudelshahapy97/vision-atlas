@@ -5,8 +5,9 @@ HTTPBearer (not OAuth2PasswordBearer) because there is no OAuth2 flow here,
 just a bearer token issued by /auth/login or /auth/register.
 
 Every guard re-reads the app_user row rather than trusting the token's role
-claim, so a role change or a deleted account takes effect on the very next
-request instead of waiting for the token to expire.
+claim, so a role change, a deactivated or deleted account, or a sign-out
+everywhere (token_version) takes effect on the very next request instead of
+waiting for the token to expire.
 """
 
 import logging
@@ -30,7 +31,7 @@ _UNAUTHORIZED = HTTPException(
     detail="Sign in to continue. Your session may have expired.",
     headers={"WWW-Authenticate": "Bearer"},
 )
-_ROLE_MESSAGES = {"admin": "Only admins can change the project catalog."}
+_ROLE_MESSAGES = {"admin": "Only an administrator can do this."}
 
 
 async def _user_from_credentials(credentials: Optional[HTTPAuthorizationCredentials]) -> Optional[Dict[str, Any]]:
@@ -39,7 +40,10 @@ async def _user_from_credentials(credentials: Optional[HTTPAuthorizationCredenti
     payload = decode_token(credentials.credentials)
     if not payload:
         return None
-    return await user_service.get_by_id(int(payload["sub"]))
+    user = await user_service.get_by_id(int(payload["sub"]))
+    if not user or not user["is_active"] or payload.get("tv") != user["token_version"]:
+        return None
+    return user
 
 
 async def optional_user(

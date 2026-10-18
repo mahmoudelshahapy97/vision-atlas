@@ -44,7 +44,7 @@ app/
   core/                   config.py · database.py (asyncpg pool, SCHEMA_UPGRADES, db_manager) · security.py · logging_config.py
   api/
     deps.py               optional_user · get_current_user · require_role("admin")
-    routes/               auth · catalog · project · progress · lab · run · model  (*_router.py, all under /api)
+    routes/               auth · user · catalog · project · progress · lab · run · model  (*_router.py, all under /api)
   schemas/                *_schemas.py: request/response models (XCreate / XUpdate / XResponse)
   services/               *_service.py: SQL and business logic, one singleton each
   utils/                  sql_utils (placeholders, LIKE escaping) · slug_utils · upload_utils
@@ -117,12 +117,23 @@ uvicorn app.main:app --reload --port 8000
 
 ## Auth
 
-Anyone can register. `POST /api/auth/register` and `POST /api/auth/login`
-return `{access_token, token_type, user}`. Send the token as
-`Authorization: Bearer <token>`. It lasts `JWT_EXPIRE_MINUTES` (7 days). Roles
-form one ladder, `user < admin`. Every guard in `app/api/deps.py` re-reads the
-`app_user` row, so a role change applies on the next request. Admins edit the
-catalog, prefetch models, and can share uploaded models with everyone.
+Anyone can register. `POST /api/auth/register`, `/login` and `/refresh` return
+`{access_token, refresh_token, token_type, user}`.
+- Send the access token as `Authorization: Bearer <token>`. It lasts
+  `ACCESS_TOKEN_EXPIRE_MINUTES` (30).
+- When it expires, the console trades the refresh token
+  (`REFRESH_TOKEN_EXPIRE_DAYS`, 7) at `/api/auth/refresh` for a new pair.
+  Refresh tokens rotate: each one works once. Presenting a used one again
+  revokes all of that account's sessions.
+- Every guard in `app/api/deps.py` re-reads the `app_user` row. A deactivated
+  account, a role change, a password change or "sign out everywhere" therefore
+  applies on the next request. The last three bump `token_version`, which
+  every access token carries.
+- Roles form one ladder, `user < admin`. Admins edit the catalog, manage
+  accounts at `/api/users`, prefetch models, and can share uploaded models
+  with everyone.
+- The admin guards refuse to delete or demote yourself, and refuse to demote,
+  deactivate or delete the last active admin.
 
 ## API
 
@@ -131,7 +142,12 @@ Everything is under `/api`. Interactive docs are at `/docs`.
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | POST | `/api/auth/register` · `/api/auth/login` | – | Create an account / sign in |
+| POST | `/api/auth/refresh` · `/api/auth/logout` | – | Rotate the refresh token · end this session (body: `refresh_token`) |
+| POST | `/api/auth/logout-all` · `/api/auth/change-password` | user | End every session · change your password (returns a fresh pair) |
 | GET | `/api/auth/me` | user | The signed-in user |
+| GET · POST | `/api/users` | admin | Accounts (`q`, `role`, `page`, `per_page`) · create one |
+| GET · PATCH · DELETE | `/api/users/{id}` | admin | One account: name, role, `is_active` · delete with its runs and models |
+| POST | `/api/users/{id}/reset-password` | admin | Set a new password; signs the account out everywhere |
 | GET | `/api/domains` · `/api/task-types` · `/api/technologies` | – | Catalog reference data with counts |
 | GET | `/api/projects` | optional | `q`, `domain`, `task`, `level`, `picks`, `status`, `tech`, `sort`, `page`, `size` |
 | GET | `/api/projects/facets` | optional | Counts per domain, task and level (each ignores its own filter) |
@@ -333,7 +349,7 @@ docker compose run --rm --no-deps -v ./backend/tests:/app/tests -v ./database:/s
   api sh -c "pip install -q -r requirements-dev.txt && pytest -q"
 
 # locally, against a Postgres on localhost:5432 and models-serve on localhost:8500
-cd backend && pytest                # API, auth, catalog, progress, lab runs, uploads, custom models, model client
+cd backend && pytest                # API, auth, accounts, catalog, progress, lab runs, uploads, custom models, model client
 pytest -m slow                      # runs every project lab on its sample through the real API (minutes on CPU)
 ```
 

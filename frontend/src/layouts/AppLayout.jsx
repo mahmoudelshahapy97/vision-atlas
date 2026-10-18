@@ -23,6 +23,7 @@ import MemoryIcon from "@mui/icons-material/Memory";
 import ViewKanbanIcon from "@mui/icons-material/ViewKanban";
 import HistoryIcon from "@mui/icons-material/History";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import PeopleIcon from "@mui/icons-material/People";
 import MenuIcon from "@mui/icons-material/Menu";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import LightModeIcon from "@mui/icons-material/LightMode";
@@ -61,6 +62,7 @@ const NAV_SECTIONS = [
     heading: "Admin",
     items: [
       { to: "/admin", label: "Projects", icon: <AdminPanelSettingsIcon />, minimum: "admin" },
+      { to: "/users", label: "Users", icon: <PeopleIcon />, minimum: "admin" },
     ],
   },
 ];
