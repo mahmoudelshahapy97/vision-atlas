@@ -16,6 +16,9 @@ from app.schemas.workspace_schemas import (
     WorkspaceResponse,
     WorkspaceUpdate,
 )
+from app.services.camera_service import camera_service
+from app.services.event_service import remove_camera_files
+from app.services.stream_manager import stream_manager
 from app.services.user_service import user_service
 from app.services.workspace_service import workspace_service
 from app.vision import live
@@ -107,9 +110,15 @@ async def update_workspace(
 
 @router.delete("/{workspace_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_workspace(workspace_id: int, _: Dict[str, Any] = Depends(require_role("admin"))) -> Response:
-    """Members go with it; models shared with it go back to their owners."""
+    """Members, cameras and events go with it; models shared with it go back
+    to their owners."""
+    cameras = await camera_service.list(workspace_id)
+    for c in cameras:
+        await stream_manager.stop_camera(c["id"])
     if not await workspace_service.delete(workspace_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not found.")
+    for c in cameras:
+        await remove_camera_files(c["id"])
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

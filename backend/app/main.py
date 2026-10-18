@@ -24,6 +24,7 @@ from app.core.database import (
 from app.core.logging_config import setup_logging
 from app.services.object_store import object_store
 from app.services.run_service import run_service
+from app.services.event_service import event_service, wait_for_uploads
 from app.services.stream_manager import stream_manager
 from app.services.user_service import user_service
 from app.vision import runner
@@ -78,15 +79,19 @@ async def lifespan(app: FastAPI):
         logger.warning("MinIO at %s is unreachable; run files stay on disk until it is back.", config.minio_endpoint)
 
     runner.start(asyncio.get_running_loop())
+    stream_manager.on_output = event_service.record_output  # live analyzers' events -> camera_event
     try:
         await stream_manager.startup()  # resumes enabled cameras, then supervises them
     except Exception as e:
         logger.error("Could not start camera workers: %s", e, exc_info=True)
+    purge = asyncio.create_task(event_service.purge_forever(), name="event-retention")
     logger.info("Startup complete.")
     yield
 
     logger.info("Shutdown sequence initiated...")
     await stream_manager.shutdown()
+    purge.cancel()
+    await wait_for_uploads(timeout=10)
     runner.stop()
 
     try:

@@ -216,6 +216,40 @@ SCHEMA_UPGRADES: tuple = (
     """,
     "CREATE INDEX IF NOT EXISTS idx_camera_workspace ON camera (workspace_id);",
     "CREATE INDEX IF NOT EXISTS idx_camera_enabled ON camera (enabled) WHERE enabled;",
+    # camera events; their snapshots in media_object
+    """
+    CREATE TABLE IF NOT EXISTS camera_event (
+        id               BIGSERIAL PRIMARY KEY,
+        workspace_id     INTEGER NOT NULL REFERENCES workspace (id) ON DELETE CASCADE,
+        camera_id        INTEGER NOT NULL REFERENCES camera (id) ON DELETE CASCADE,
+        pipeline         TEXT NOT NULL,
+        kind             TEXT NOT NULL,          -- zone_entry, fall, abandoned, ppe_violation, ...
+        label            TEXT NOT NULL,          -- what it is about: "person", "backpack"
+        severity         TEXT NOT NULL DEFAULT 'warning' CHECK (severity IN ('info', 'warning', 'critical')),
+        track_id         INTEGER,
+        confidence       REAL,
+        data             JSONB NOT NULL DEFAULT '{}'::jsonb,
+        snapshot_key     TEXT,                   -- events/<camera>/<id>.jpg (media_object, or MEDIA_DIR without MinIO)
+        status           TEXT NOT NULL DEFAULT 'open'
+                         CHECK (status IN ('open', 'acknowledged', 'resolved', 'false_positive')),
+        handled_by       INTEGER REFERENCES app_user (id) ON DELETE SET NULL,
+        handled_at       TIMESTAMPTZ,
+        occurred_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_event_workspace_time ON camera_event (workspace_id, occurred_at DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_event_camera_time ON camera_event (camera_id, occurred_at DESC);",
+    "CREATE INDEX IF NOT EXISTS idx_event_open ON camera_event (workspace_id) WHERE status = 'open';",
+    "ALTER TABLE media_object ALTER COLUMN run_id DROP NOT NULL;",
+    "ALTER TABLE media_object ADD COLUMN IF NOT EXISTS event_id BIGINT REFERENCES camera_event (id) ON DELETE CASCADE;",
+    """
+    DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'media_object_one_owner') THEN
+            ALTER TABLE media_object ADD CONSTRAINT media_object_one_owner CHECK (num_nonnulls(run_id, event_id) = 1);
+        END IF;
+    END $$;
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_media_object_event ON media_object (event_id) WHERE event_id IS NOT NULL;",
 )
 
 

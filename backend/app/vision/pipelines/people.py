@@ -129,39 +129,15 @@ def pose(ctx):
 def fall_detection(ctx):
     f = ctx.file()
     tracker = _tracker(ctx, f)
-    lean = float(ctx.p("lean", 60))
-    hold = float(ctx.p("hold", 1.0))
+    watch = FallWatch(float(ctx.p("lean", 60)), float(ctx.p("hold", 1.0)))
 
     def fn(img, t, st):
         people = pose_predict(ctx, img, float(ctx.p("conf", 0.25)), tracker)
-        out = img.copy()
-        n_fallen = 0
-        tracks = st.setdefault("tracks", {})
-        for p in people:
-            ta = torso_angle(p)
-            w, h = p["box"][2] - p["box"][0], p["box"][3] - p["box"][1]
-            lying = (ta is not None and ta > lean) or (w / max(h, 1) > 1.3)
-            key = p["id"] if p["id"] is not None else id(p)
-            tr = tracks.setdefault(key, {"since": None, "alerted": False, "hip": [], "fall_at": None})
-            hip_y = (p["box"][1] + p["box"][3]) / 2
-            tr["hip"].append((t, hip_y / max(h, 1)))
-            tr["hip"] = tr["hip"][-30:]
-            if lying:
-                tr["since"] = tr["since"] if tr["since"] is not None else t
-            else:
-                tr["since"], tr["alerted"] = None, False
-            fallen = lying and (not st["video"] or t - tr["since"] >= hold)
-            if fallen and st["video"] and not tr["alerted"]:
-                tr["alerted"] = True
-                drop = [y for tt, y in tr["hip"] if t - tt <= 2.0]
-                st.setdefault("events", []).append([round(tr["since"], 1), key, "fall" if drop and max(drop) - min(drop) > 0.25 else "lying"])
-            n_fallen += fallen
-            draw_skeleton(out, p, RED if fallen else GREEN)
-            box(out, p["box"], ("FALL" if fallen else "upright") + (f" #{p['id']}" if p["id"] is not None else "")
-                + (f" {ta:.0f}°" if ta is not None else ""), RED if fallen else GREEN)
+        out, n_fallen, new = watch.step(img, people, t, st["video"])
+        for key, tr, kind in new:
+            st.setdefault("events", []).append([round(tr["since"], 1), key, kind])
         st["fallen"] = max(st.get("fallen", 0), n_fallen)
         st["people"] = len(people)
-        banner(out, [f"People: {len(people)}", f"Fallen: {n_fallen}"], (40, 40, 160) if n_fallen else (30, 30, 30))
         return out
 
     st = run_media(ctx, fn, caption="Fall detection")
@@ -171,6 +147,49 @@ def fall_detection(ctx):
         ctx.stat("Alerts", len(st["events"]), "bad")
         ctx.table("Alerts", ["Time (s)", "Track", "Type"], st["events"], "falls.csv")
     ctx.note("Rule-based on YOLO26 pose. Validate on footage from your own cameras before relying on alerts.")
+
+
+class FallWatch:
+    """Fall logic for one frame at a time, shared by the lab pipeline and its
+    live camera analyzer. A person is lying when the torso leans more than
+    `lean` degrees or the box is much wider than tall; in a video they count
+    as fallen after lying for `hold` seconds, reported once per episode as
+    "fall" (a fast drop just before) or "lying"."""
+
+    def __init__(self, lean: float, hold: float):
+        self.lean, self.hold = lean, hold
+        self.tracks: dict = {}
+
+    def step(self, img, people: list[dict], t: float, video: bool = True):
+        out = img.copy()
+        n_fallen, new = 0, []
+        for p in people:
+            ta = torso_angle(p)
+            w, h = p["box"][2] - p["box"][0], p["box"][3] - p["box"][1]
+            lying = (ta is not None and ta > self.lean) or (w / max(h, 1) > 1.3)
+            key = p["id"] if p["id"] is not None else id(p)
+            tr = self.tracks.setdefault(key, {"since": None, "alerted": False, "hip": [], "seen": t})
+            tr["seen"] = t
+            hip_y = (p["box"][1] + p["box"][3]) / 2
+            tr["hip"].append((t, hip_y / max(h, 1)))
+            tr["hip"] = tr["hip"][-30:]
+            if lying:
+                tr["since"] = tr["since"] if tr["since"] is not None else t
+            else:
+                tr["since"], tr["alerted"] = None, False
+            fallen = lying and (not video or t - tr["since"] >= self.hold)
+            if fallen and video and not tr["alerted"]:
+                tr["alerted"] = True
+                drop = [y for tt, y in tr["hip"] if t - tt <= 2.0]
+                new.append((key, tr, "fall" if drop and max(drop) - min(drop) > 0.25 else "lying"))
+            n_fallen += fallen
+            draw_skeleton(out, p, RED if fallen else GREEN)
+            box(out, p["box"], ("FALL" if fallen else "upright") + (f" #{p['id']}" if p["id"] is not None else "")
+                + (f" {ta:.0f}°" if ta is not None else ""), RED if fallen else GREEN)
+        if len(self.tracks) > 500:  # a camera runs for months: forget people gone for a minute
+            self.tracks = {k: v for k, v in self.tracks.items() if t - v["seen"] < 60}
+        banner(out, [f"People: {len(people)}", f"Fallen: {n_fallen}"], (40, 40, 160) if n_fallen else (30, 30, 30))
+        return out, n_fallen, new
 
 
 # ------------------------------------------------------------------ exercise counter

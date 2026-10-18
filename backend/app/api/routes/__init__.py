@@ -5,6 +5,7 @@ from app.api.routes import (
     auth_router,
     camera_router,
     catalog_router,
+    event_router,
     lab_router,
     model_router,
     progress_router,
@@ -29,3 +30,5 @@ router.include_router(run_router.router)
 router.include_router(model_router.router)
 router.include_router(camera_router.router)
 router.include_router(camera_router.ws_router)
+router.include_router(event_router.router)
+router.include_router(event_router.ws_router)

@@ -217,6 +217,35 @@ CREATE INDEX IF NOT EXISTS idx_camera_workspace ON camera (workspace_id);
 CREATE INDEX IF NOT EXISTS idx_camera_enabled ON camera (enabled) WHERE enabled;
 
 -- ---------------------------------------------------------------------------
+-- camera_event — something a camera's live pipeline raised for an operator
+--
+-- Analyzers raise each event once (per tracked object, or with a cooldown).
+-- Operators acknowledge, resolve or dismiss it. Kept for EVENT_RETENTION_DAYS.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS camera_event (
+    id               BIGSERIAL PRIMARY KEY,
+    workspace_id     INTEGER NOT NULL REFERENCES workspace (id) ON DELETE CASCADE,
+    camera_id        INTEGER NOT NULL REFERENCES camera (id) ON DELETE CASCADE,
+    pipeline         TEXT NOT NULL,
+    kind             TEXT NOT NULL,          -- zone_entry, fall, abandoned, ppe_violation, ...
+    label            TEXT NOT NULL,          -- what it is about: "person", "backpack"
+    severity         TEXT NOT NULL DEFAULT 'warning' CHECK (severity IN ('info', 'warning', 'critical')),
+    track_id         INTEGER,
+    confidence       REAL,
+    data             JSONB NOT NULL DEFAULT '{}'::jsonb,
+    snapshot_key     TEXT,                   -- events/<camera>/<id>.jpg (media_object, or MEDIA_DIR without MinIO)
+    status           TEXT NOT NULL DEFAULT 'open'
+                     CHECK (status IN ('open', 'acknowledged', 'resolved', 'false_positive')),
+    handled_by       INTEGER REFERENCES app_user (id) ON DELETE SET NULL,
+    handled_at       TIMESTAMPTZ,
+    occurred_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_event_workspace_time ON camera_event (workspace_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_event_camera_time ON camera_event (camera_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_event_open ON camera_event (workspace_id) WHERE status = 'open';
+
+-- ---------------------------------------------------------------------------
 -- ml_model — Ultralytics weights a user uploaded
 --
 -- The file lives under WEIGHTS_DIR/custom/; file_path is its absolute path
@@ -275,15 +304,17 @@ CREATE INDEX IF NOT EXISTS idx_run_project   ON inference_run (project_id);
 CREATE INDEX IF NOT EXISTS idx_run_in_flight ON inference_run (user_id) WHERE status IN ('queued', 'running');
 
 -- ---------------------------------------------------------------------------
--- media_object — an image, video or document of a run, stored in MinIO
+-- media_object — an image, video or document of a run or of a camera event,
+-- stored in MinIO
 --
 -- url is a presigned GET link (at most 7 days). The API re-signs a link that
--- is about to expire when it returns the run, and saves the new one here. The
--- run's inputs/result JSON carry the same key and link.
+-- is about to expire when it returns the run or event, and saves the new one
+-- here. The run's inputs/result JSON carry the same key and link.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS media_object (
     id              SERIAL PRIMARY KEY,
-    run_id          INTEGER NOT NULL REFERENCES inference_run (id) ON DELETE CASCADE,
+    run_id          INTEGER REFERENCES inference_run (id) ON DELETE CASCADE,
+    event_id        BIGINT REFERENCES camera_event (id) ON DELETE CASCADE,
     bucket          TEXT NOT NULL,
     object_key      TEXT NOT NULL UNIQUE,      -- runs/<public_id>/out/03-mask.png
     name            TEXT NOT NULL,             -- file name shown to the user
@@ -292,10 +323,12 @@ CREATE TABLE IF NOT EXISTS media_object (
     size_bytes      BIGINT NOT NULL DEFAULT 0,
     url             TEXT NOT NULL,             -- presigned GET link
     url_expires_at  TIMESTAMPTZ NOT NULL,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT media_object_one_owner CHECK (num_nonnulls(run_id, event_id) = 1)
 );
 
 CREATE INDEX IF NOT EXISTS idx_media_object_run ON media_object (run_id);
+CREATE INDEX IF NOT EXISTS idx_media_object_event ON media_object (event_id) WHERE event_id IS NOT NULL;
 
 COMMIT;
 

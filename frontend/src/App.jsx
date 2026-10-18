@@ -3,6 +3,7 @@ import CssBaseline from "@mui/material/CssBaseline";
 import { ThemeProvider } from "@mui/material/styles";
 import { AuthProvider } from "./auth/AuthContext";
 import { ToastProvider } from "./components/Toast";
+import { AlertsProvider } from "./hooks/useAlerts";
 import AppRouter from "./routes/AppRouter";
 import { WorkspaceProvider } from "./workspace/WorkspaceContext";
 import { buildTheme } from "./utils/theme";
@@ -40,7 +41,9 @@ export default function App() {
       <ToastProvider>
         <AuthProvider>
           <WorkspaceProvider>
-            <AppRouter mode={mode} onToggleMode={toggleMode} />
+            <AlertsProvider>
+              <AppRouter mode={mode} onToggleMode={toggleMode} />
+            </AlertsProvider>
           </WorkspaceProvider>
         </AuthProvider>
       </ToastProvider>

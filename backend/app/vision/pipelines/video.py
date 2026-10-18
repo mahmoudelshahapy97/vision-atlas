@@ -194,49 +194,68 @@ def speed_estimation(ctx):
           models=["yolo26-detect"])
 def abandoned_object(ctx):
     f = ctx.file()
-    watch = set(ctx.p("objects", ["backpack", "handbag", "suitcase"]))
-    limit = float(ctx.p("seconds", 5))
-    radius = float(ctx.p("radius", 3))
+    watch = AbandonWatch(set(ctx.p("objects", ["backpack", "handbag", "suitcase"])), float(ctx.p("seconds", 5)),
+                         float(ctx.p("radius", 3)))
     info = video_info(f.path)
     stride = int(ctx.p("stride", 1))
     writer = video_output(ctx, info.fps / stride)
-    mem: list[dict] = []   # static object candidates
     alerts = []
     for i, t, img in frames(f.path, stride):
         dets = boxes_of(ctx.predict("yolo26-detect", img, conf=float(ctx.p("conf", 0.15)), imgsz=int(ctx.p("imgsz", 1280)))[0])
-        objs = [d for d in dets if d["cls"] in watch]
-        people = [d for d in dets if d["cls"] == "person"]
-        for o in objs:
-            m = max(mem, key=lambda m: iou(m["box"], o["box"]), default=None)
-            if m is not None and iou(m["box"], o["box"]) > 0.5:
-                m["last"], m["box"] = t, [0.8 * a + 0.2 * b for a, b in zip(m["box"], o["box"])]
-            else:
-                mem.append({"box": o["box"], "cls": o["cls"], "first": t, "last": t, "alone_since": None, "alerted": False})
-        mem = [m for m in mem if t - m["last"] < 2.0]
-        out = img.copy()
-        for p in people:
-            box(out, p["box"], None, BLUE, 1)
-        for m in mem:
-            c = center(m["box"])
-            size = max(m["box"][2] - m["box"][0], m["box"][3] - m["box"][1])
-            near = any(np.hypot(*(np.subtract(center(p["box"]), c))) < radius * size for p in people)
-            if near:
-                m["alone_since"] = None
-            elif m["alone_since"] is None:
-                m["alone_since"] = t
-            alone = 0 if m["alone_since"] is None else t - m["alone_since"]
-            danger = alone >= limit
-            if danger and not m["alerted"]:
-                m["alerted"] = True
-                alerts.append([round(m["alone_since"] + limit, 1), m["cls"], [round(v) for v in m["box"]]])
-            box(out, m["box"], f"{m['cls']} " + (f"UNATTENDED {alone:.0f}s" if danger else f"{alone:.0f}s"), RED if danger else AMBER)
-        banner(out, [f"Watched objects: {len(mem)}", f"Alerts: {len(alerts)}"], (40, 40, 160) if alerts else (30, 30, 30))
+        out, new = watch.step(img, dets, t)
+        alerts += [[round(m["alone_since"] + watch.limit, 1), m["cls"], [round(v) for v in m["box"]]] for m in new]
         writer.write(out)
         ctx.progress(i / max(1, info.frames))
     finish_video(ctx, writer, "Abandoned object watch")
     ctx.stat("Alerts", len(alerts), "bad" if alerts else "good")
     if alerts:
         ctx.table("Alerts", ["Time (s)", "Object", "Box"], alerts, "alerts.csv")
+
+
+class AbandonWatch:
+    """Abandoned-object logic for one frame at a time, shared by the lab
+    pipeline and its live camera analyzer. An object of a watched class that
+    stays put with no person within `radius` x its size for `limit` seconds
+    is reported once (step() returns it among the new alerts)."""
+
+    def __init__(self, watch: set[str], limit: float, radius: float):
+        self.watch, self.limit, self.radius = watch, limit, radius
+        self.mem: list[dict] = []   # static object candidates
+        self.alerts = 0
+
+    def step(self, img, dets: list[dict], t: float):
+        objs = [d for d in dets if d["cls"] in self.watch]
+        people = [d for d in dets if d["cls"] == "person"]
+        for o in objs:
+            m = max(self.mem, key=lambda m: iou(m["box"], o["box"]), default=None)
+            if m is not None and iou(m["box"], o["box"]) > 0.5:
+                m["last"], m["box"] = t, [0.8 * a + 0.2 * b for a, b in zip(m["box"], o["box"])]
+                m["conf"] = o["conf"]
+            else:
+                self.mem.append({"box": o["box"], "cls": o["cls"], "conf": o["conf"], "first": t, "last": t,
+                                 "alone_since": None, "alerted": False})
+        self.mem = [m for m in self.mem if t - m["last"] < 2.0]
+        out = img.copy()
+        new = []
+        for p in people:
+            box(out, p["box"], None, BLUE, 1)
+        for m in self.mem:
+            c = center(m["box"])
+            size = max(m["box"][2] - m["box"][0], m["box"][3] - m["box"][1])
+            near = any(np.hypot(*(np.subtract(center(p["box"]), c))) < self.radius * size for p in people)
+            if near:
+                m["alone_since"] = None
+            elif m["alone_since"] is None:
+                m["alone_since"] = t
+            alone = 0 if m["alone_since"] is None else t - m["alone_since"]
+            danger = alone >= self.limit
+            if danger and not m["alerted"]:
+                m["alerted"] = True
+                self.alerts += 1
+                new.append(m)
+            box(out, m["box"], f"{m['cls']} " + (f"UNATTENDED {alone:.0f}s" if danger else f"{alone:.0f}s"), RED if danger else AMBER)
+        banner(out, [f"Watched objects: {len(self.mem)}", f"Alerts: {self.alerts}"], (40, 40, 160) if self.alerts else (30, 30, 30))
+        return out, new
 
 
 # ------------------------------------------------------------------ football analytics

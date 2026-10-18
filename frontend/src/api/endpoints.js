@@ -62,6 +62,15 @@ export const cameras = {
   preview: (sourceUrl) => apiBlob("/cameras/preview", { method: "POST", body: { source_url: sourceUrl } }),
 };
 
+/** Workspace-scoped, like cameras. */
+export const events = {
+  list: (params, opts) => api("/events", { params, ...opts }),
+  stats: (opts) => api("/events/stats", opts),
+  get: (id, opts) => api(`/events/${id}`, opts),
+  setStatus: (id, status) => api(`/events/${id}`, { method: "PATCH", body: { status } }),
+  alertsToken: () => api("/events/alerts-token", { method: "POST" }),
+};
+
 export const catalog = {
   domains: (opts) => api("/domains", opts),
   taskTypes: (opts) => api("/task-types", opts),
@@ -109,4 +118,4 @@ export const models = {
   remove: (id) => api(`/models/custom/${id}`, { method: "DELETE" }),
 };
 
-export default { health, auth, users, workspaces, cameras, catalog, projects, progress, me, lab, runs, models };
+export default { health, auth, users, workspaces, cameras, events, catalog, projects, progress, me, lab, runs, models };

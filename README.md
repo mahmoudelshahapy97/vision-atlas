@@ -10,8 +10,11 @@ catalog as an admin.
 
 **Operations.** Teams get workspaces. A workspace holds:
 - **cameras** (RTSP/HTTP streams or looping test videos), each running a lab
-  pipeline continuously: detection, line counting or a restricted zone
+  pipeline continuously: detection, line counting, restricted zone, falls,
+  abandoned objects, PPE or parking
 - a **live wall** of annotated streams
+- **events** with snapshots and live alerts
+- a **dashboard**
 - **members** with viewer, operator or admin roles
 
 System admins manage accounts and workspaces.

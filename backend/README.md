@@ -161,9 +161,18 @@ A camera is a source in a workspace. It can run a **live pipeline**: a lab
 pipeline adapted to an endless stream (`app/vision/live/`). It has the same
 name and the same settings as its lab pipeline, so the console reuses the
 lab's form, and zones and lines are drawn the same way. Where the per-frame
-logic can be shared, both use the same code (`ZoneMonitor` in
-`pipelines/common.py`). Live pipelines today: `detect` (counts per class),
-`track_count` (line in/out) and `restricted_zone` (`zone_entry` events).
+logic can be shared, both use the same code: `ZoneMonitor`, `FallWatch`,
+`AbandonWatch`, `ppe_frame` and `parking_frame`. The live pipelines:
+
+| Pipeline | Events | Metrics |
+|---|---|---|
+| `detect` | – | `objects`, `count:<class>` |
+| `track_count` | – | `in`, `out`, `tracked` |
+| `restricted_zone` | `zone_entry` (warning, once per track) | `in_zone` |
+| `fall_detection` | `fall` / `lying` (critical, once per episode) | `people`, `fallen` |
+| `abandoned_object` | `abandoned` (critical, once per object) | `watched`, `unattended` |
+| `ppe_compliance` | `ppe_violation` (warning, at most every 30 s) | `workers`, `violations` |
+| `parking_occupancy` | `lot_full` (info) | `vehicles`, `occupied`, `free` |
 
 **Sources.** `rtsp://`, `rtsps://` or `http(s)://`. For testing:
 `sample:<lab sample video>`, or `file:<name>` under `CAMERA_FILES_DIR`
@@ -198,6 +207,23 @@ opens a WebSocket.
 - WebSockets were chosen over MJPEG because each MJPEG `<img>` holds one of
   the browser's six HTTP/1.1 connections, which a live wall would exhaust.
 
+## Events
+
+When an analyzer raises an event, `event_service.record_output` does three
+things:
+- writes a `camera_event` row
+- pushes the event to the workspace's browsers (`alert_hub`, WebSocket
+  `/api/ws/alerts/{workspace_id}?token=`)
+- stores the annotated frame as its snapshot, in the background. The
+  snapshot is stored like a lab run's files: MinIO `events/<camera>/<id>.jpg`
+  with a presigned link in `media_object`, or under `MEDIA_DIR` (served at
+  `/media`) without MinIO.
+
+Operators set an event's status: `open`, `acknowledged`, `resolved` or
+`false_positive`. A daily task deletes events older than
+`EVENT_RETENTION_DAYS` (30) along with their snapshots. Deleting a camera or
+a workspace removes its snapshots too.
+
 ## API
 
 Everything is under `/api`. Interactive docs are at `/docs`.
@@ -225,6 +251,11 @@ Everything is under `/api`. Interactive docs are at `/docs`.
 | POST | `/api/cameras/preview` | ws admin | One JPEG frame from a source before saving (to check it and draw zones) |
 | POST | `/api/cameras/{id}/live-token` | ws viewer | Token + path for the live WebSocket |
 | WS | `/api/ws/cameras/{id}?token=` | token | Live annotated frames |
+| GET | `/api/events` | ws viewer | Events (`camera_id`, `kind`, `status`, `severity`, `since`, `page`, `per_page`) with snapshot links |
+| GET | `/api/events/stats` | ws viewer | Dashboard numbers: open, critical open, last 24 h, cameras live |
+| GET · PATCH | `/api/events/{id}` | ws viewer · ws operator | One event · set its status |
+| POST | `/api/events/alerts-token` | ws viewer | Token + path for the alerts WebSocket |
+| WS | `/api/ws/alerts/{workspace_id}?token=` | token | New events and status changes as they happen |
 | GET | `/api/domains` · `/api/task-types` · `/api/technologies` | – | Catalog reference data with counts |
 | GET | `/api/projects` | optional | `q`, `domain`, `task`, `level`, `picks`, `status`, `tech`, `sort`, `page`, `size` |
 | GET | `/api/projects/facets` | optional | Counts per domain, task and level (each ignores its own filter) |
@@ -426,7 +457,7 @@ docker compose run --rm --no-deps -v ./backend/tests:/app/tests -v ./database:/s
   api sh -c "pip install -q -r requirements-dev.txt && pytest -q"
 
 # locally, against a Postgres on localhost:5432 and models-serve on localhost:8500
-cd backend && pytest                # API, auth, accounts, workspaces, cameras (live, WebSocket), catalog, progress, lab runs, uploads, custom models, model client
+cd backend && pytest                # API, auth, accounts, workspaces, cameras (live, WebSocket), events, catalog, progress, lab runs, uploads, custom models, model client
 pytest -m slow                      # runs every project lab on its sample through the real API (minutes on CPU)
 ```
 

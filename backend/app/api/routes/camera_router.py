@@ -26,6 +26,7 @@ from app.schemas.camera_schemas import (
     SourcePreview,
 )
 from app.services.camera_service import camera_service
+from app.services.event_service import remove_camera_files
 from app.services.model_service import model_service
 from app.services.rtsp_reader import grab_single_frame
 from app.services.stream_manager import LiveCapacityError, encode_jpeg, stream_manager
@@ -194,7 +195,8 @@ async def update_camera(
 async def delete_camera(camera_id: int, access: Dict[str, Any] = Depends(require_workspace("admin"))) -> Response:
     await _camera(camera_id, access)
     await stream_manager.stop_camera(camera_id)
-    await camera_service.delete(camera_id)
+    await camera_service.delete(camera_id)  # its events and their media_object rows cascade
+    await remove_camera_files(camera_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

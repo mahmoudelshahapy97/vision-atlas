@@ -28,6 +28,8 @@ import GroupIcon from "@mui/icons-material/Group";
 import WorkspacesIcon from "@mui/icons-material/Workspaces";
 import VideocamIcon from "@mui/icons-material/Videocam";
 import GridViewIcon from "@mui/icons-material/GridView";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import NotificationsIcon from "@mui/icons-material/Notifications";
 import MenuIcon from "@mui/icons-material/Menu";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import LightModeIcon from "@mui/icons-material/LightMode";
@@ -69,7 +71,9 @@ const NAV_SECTIONS = [
   {
     heading: "Operations",
     items: [
+      { to: "/dashboard", label: "Dashboard", icon: <DashboardIcon />, ws: "viewer" },
       { to: "/live", label: "Live", icon: <GridViewIcon />, ws: "viewer" },
+      { to: "/events", label: "Events", icon: <NotificationsIcon />, ws: "viewer" },
       { to: "/cameras", label: "Cameras", icon: <VideocamIcon />, ws: "viewer" },
       { to: "/workspace/members", label: "Members", icon: <GroupIcon />, ws: "viewer" },
     ],

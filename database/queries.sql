@@ -226,6 +226,32 @@ WHERE c.enabled
 ORDER BY c.id;
 
 
+-- :name event_service.list
+-- GET /api/events (filters are added as needed), newest first
+SELECT e.*, c.name AS camera_name, u.name AS handled_by_name,
+       m.url AS snapshot_url, m.url_expires_at AS snapshot_expires_at
+FROM camera_event e
+JOIN camera c ON c.id = e.camera_id
+LEFT JOIN app_user u ON u.id = e.handled_by
+LEFT JOIN media_object m ON m.event_id = e.id
+WHERE e.workspace_id = $1
+ORDER BY e.occurred_at DESC, e.id DESC
+LIMIT $2 OFFSET $3;
+
+-- :name event_service.stats
+-- GET /api/events/stats (the dashboard)
+SELECT COUNT(*) AS total,
+       COUNT(*) FILTER (WHERE status = 'open') AS open,
+       COUNT(*) FILTER (WHERE status = 'open' AND severity = 'critical') AS open_critical,
+       COUNT(*) FILTER (WHERE occurred_at >= NOW() - INTERVAL '24 hours') AS last_24h,
+       MAX(occurred_at) AS last_event_at
+FROM camera_event WHERE workspace_id = $1;
+
+-- :name event_service.purge
+-- daily; then the snapshots under the returned keys are removed from MinIO
+DELETE FROM camera_event WHERE occurred_at < NOW() - make_interval(days => $1) RETURNING snapshot_key;
+
+
 -- ===========================================================================
 -- 5. LAB RUNS
 -- ===========================================================================

@@ -9,8 +9,10 @@ import numpy as np
 
 from ..core import banner, boxes_of, box, center, color_for, norm_points, side_of_line
 from ..pipelines.common import ZoneMonitor, draw_dets, filter_classes
-from ..pipelines.video import _crosses, _draw_line
-from ..registry import manager
+from ..pipelines.detection import PPE_ITEMS, parking_frame, ppe_frame
+from ..pipelines.people import FallWatch, people_of
+from ..pipelines.video import AbandonWatch, _crosses, _draw_line
+from ..registry import ModelError, manager
 from .base import LiveAnalyzer, LiveEvent, LiveOutput, live
 
 
@@ -119,3 +121,112 @@ class RestrictedZone(_Tracking):
             for d in entered
         ]
         return LiveOutput(out, events, {"in_zone": inside})
+
+
+@live
+class FallDetection(_Tracking):
+    name = "fall_detection"
+    default_model = "yolo26-pose"
+    events = {"fall": "Someone fell (a fast drop, then lying still)", "lying": "Someone is lying on the ground"}
+    metrics = {"people": "avg", "fallen": "max"}
+
+    def __init__(self, params):
+        super().__init__(params)
+        self.watch = FallWatch(float(self.p("lean", 60)), float(self.p("hold", 1.0)))
+
+    def step(self, frame, t):
+        r = self.tracker.track(frame, persist=True, conf=float(self.p("conf", 0.25)), tracker="bytetrack.yaml")[0]
+        people = people_of(r)
+        out, fallen, new = self.watch.step(frame, people, t)
+        events = [LiveEvent(kind, "person", "critical", key if isinstance(key, int) and key < 2**31 else None)
+                  for key, _, kind in new]
+        return LiveOutput(out, events, {"people": len(people), "fallen": fallen})
+
+
+@live
+class AbandonedObject(LiveAnalyzer):
+    name = "abandoned_object"
+    events = {"abandoned": "An object was left with nobody near it"}
+    metrics = {"watched": "avg", "unattended": "max"}
+
+    def __init__(self, params):
+        super().__init__(params)
+        self.watch = AbandonWatch(set(self.p("objects", ["backpack", "handbag", "suitcase"])), float(self.p("seconds", 5)),
+                                  float(self.p("radius", 3)))
+
+    def step(self, frame, t):
+        r = manager.get("yolo26-detect").predict(frame, conf=float(self.p("conf", 0.15)), imgsz=int(self.p("imgsz", 1280)))[0]
+        out, new = self.watch.step(frame, boxes_of(r), t)
+        unattended = sum(1 for m in self.watch.mem if m["alerted"])
+        events = [LiveEvent("abandoned", m["cls"], "critical", None, round(m["conf"], 3),
+                            {"box": [round(v) for v in m["box"]], "seconds_alone": round(t - m["alone_since"], 1)}) for m in new]
+        return LiveOutput(out, events, {"watched": len(self.watch.mem), "unattended": unattended})
+
+
+_PPE_PROMPTS = {"helmet": "hard hat", "vest": "safety vest", "mask": "face mask", "gloves": "gloves", "goggles": "safety goggles"}
+PPE_COOLDOWN_S = 30.0
+
+
+@live
+class PpeCompliance(LiveAnalyzer):
+    name = "ppe_compliance"
+    default_model = "ppe-yolov8"
+    events = {"ppe_violation": "A worker is missing required equipment (at most every 30 s per camera)"}
+    metrics = {"workers": "avg", "violations": "max"}
+
+    def __init__(self, params):
+        super().__init__(params)
+        self.required = self.p("required", ["helmet", "vest"]) or ["helmet", "vest"]
+        try:  # same fallback as the lab: YOLOE-26 prompts when the PPE model can't be had
+            manager.get(self.model_key)
+        except ModelError:
+            self.model_key = None
+        self._last_event = -PPE_COOLDOWN_S
+
+    def _detect(self, frame):
+        conf = float(self.p("conf", 0.3))
+        if self.model_key:
+            dets = boxes_of(manager.get(self.model_key).predict(frame, conf=conf)[0])
+            people = [d for d in dets if d["cls"].lower() == "person"]
+            if not people:
+                people = [d for d in boxes_of(manager.get("yolo26-detect").predict(frame, conf=conf)[0]) if d["cls"] == "person"]
+            return people, [d for d in dets if d["cls"].lower() != "person"]
+        people = [d for d in boxes_of(manager.get("yolo26-detect").predict(frame, conf=conf)[0]) if d["cls"] == "person"]
+        gear = boxes_of(manager.get("yoloe26").yoloe([_PPE_PROMPTS[r] for r in self.required], frame, conf=max(0.1, conf - 0.15))[0])
+        return people, gear
+
+    def step(self, frame, t):
+        people, gear = self._detect(frame)
+        out, checks = ppe_frame(frame, people, gear, self.required)
+        bad = [(p, missing) for p, ok, missing in checks if not ok]
+        events = []
+        if bad and t - self._last_event >= PPE_COOLDOWN_S:
+            self._last_event = t
+            missing = sorted({m for _, ms in bad for m in ms})
+            events.append(LiveEvent("ppe_violation", "person", "warning", None, None,
+                                    {"workers": len(people), "violations": len(bad), "missing": missing}))
+        return LiveOutput(out, events, {"workers": len(people), "violations": len(bad)})
+
+
+@live
+class ParkingOccupancy(LiveAnalyzer):
+    name = "parking_occupancy"
+    events = {"lot_full": "Every drawn space became occupied"}
+    metrics = {"vehicles": "avg", "occupied": "avg", "free": "avg"}
+
+    def __init__(self, params):
+        super().__init__(params)
+        self._full = False
+
+    def step(self, frame, t):
+        r = manager.get(self.model_key).predict(frame, conf=float(self.p("conf", 0.3)))[0]
+        out, vehicles, occ = parking_frame(frame, boxes_of(r), self.p("slots"))
+        metrics = {"vehicles": vehicles}
+        events = []
+        if occ:
+            metrics.update(occupied=sum(occ), free=len(occ) - sum(occ))
+            full = all(occ)
+            if full and not self._full:
+                events.append(LiveEvent("lot_full", "parking", "info", None, None, {"spaces": len(occ)}))
+            self._full = full
+        return LiveOutput(out, events, metrics)

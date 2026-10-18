@@ -340,29 +340,11 @@ def ppe_compliance(ctx):
 
     def fn(img, t, st):
         people, gear = detect_all(img)
-        out = img.copy()
-        rows, ok_n = [], 0
-        for i, p in enumerate(people):
-            x1, y1, x2, y2 = p["box"]
-            expanded = [x1 - 0.1 * (x2 - x1), y1 - 0.15 * (y2 - y1), x2 + 0.1 * (x2 - x1), y2]
-            status = {}
-            for item in required:
-                pos, neg = PPE_ITEMS[item]
-                near = [g for g in gear if _inside(center(g["box"]), expanded)]
-                if any(g["cls"].lower() in neg for g in near):
-                    status[item] = False
-                else:
-                    status[item] = any(any(w in g["cls"].lower() for w in pos) and g["cls"].lower() not in neg for g in near)
-            ok = all(status.values())
-            ok_n += ok
-            missing = [k for k, v in status.items() if not v]
-            box(out, p["box"], "OK" if ok else "missing: " + ", ".join(missing), GREEN if ok else RED)
-            rows.append([i + 1, "compliant" if ok else "violation", ", ".join(missing) or "none"])
-        for g in gear:
-            box(out, g["box"], g["cls"], color_for(g["cls"]), 1)
+        out, checks = ppe_frame(img, people, gear, required)
+        rows = [[i + 1, "compliant" if ok else "violation", ", ".join(missing) or "none"] for i, (_, ok, missing) in enumerate(checks)]
+        ok_n = sum(ok for _, ok, _ in checks)
         st["rows"], st["ok"], st["n"] = rows, ok_n, len(people)
         st["worst"] = max(st.get("worst", 0), len(people) - ok_n)
-        banner(out, [f"Workers: {len(people)}", f"Compliant: {ok_n}", f"Violations: {len(people) - ok_n}"])
         return out
 
     st = run_media(ctx, fn, caption="PPE compliance")
@@ -376,6 +358,34 @@ def ppe_compliance(ctx):
             ctx.table("Workers", ["#", "Status", "Missing"], st["rows"], "ppe.csv")
 
 
+def ppe_frame(img, people: list[dict], gear: list[dict], required: list[str]):
+    """Checks each person for the required equipment near them and draws the
+    result. Shared by the lab pipeline and its live camera analyzer. Returns
+    (annotated, [(person, compliant, missing items)])."""
+    out = img.copy()
+    checks = []
+    for p in people:
+        x1, y1, x2, y2 = p["box"]
+        expanded = [x1 - 0.1 * (x2 - x1), y1 - 0.15 * (y2 - y1), x2 + 0.1 * (x2 - x1), y2]
+        status = {}
+        for item in required:
+            pos, neg = PPE_ITEMS[item]
+            near = [g for g in gear if _inside(center(g["box"]), expanded)]
+            if any(g["cls"].lower() in neg for g in near):
+                status[item] = False
+            else:
+                status[item] = any(any(w in g["cls"].lower() for w in pos) and g["cls"].lower() not in neg for g in near)
+        ok = all(status.values())
+        missing = [k for k, v in status.items() if not v]
+        box(out, p["box"], "OK" if ok else "missing: " + ", ".join(missing), GREEN if ok else RED)
+        checks.append((p, ok, missing))
+    for g in gear:
+        box(out, g["box"], g["cls"], color_for(g["cls"]), 1)
+    ok_n = sum(ok for _, ok, _ in checks)
+    banner(out, [f"Workers: {len(people)}", f"Compliant: {ok_n}", f"Violations: {len(people) - ok_n}"])
+    return out, checks
+
+
 # ------------------------------------------------------------------ parking occupancy
 
 @pipeline("parking_occupancy", "Parking occupancy",
@@ -385,35 +395,11 @@ def ppe_compliance(ctx):
           models=["yolo26-detect"], custom_task="detect")
 def parking_occupancy(ctx):
     def fn(img, t, st):
-        h, w = img.shape[:2]
-        slots = polygons_param(ctx.p("slots"), w, h)
-        dets = [d for d in boxes_of(ctx.predict(ctx.model_key("yolo26-detect"), img, conf=float(ctx.p("conf", 0.3)))[0])
-                if d["cls"] in ("car", "truck", "bus", "motorcycle")]
-        out = img.copy()
-        occ = []
-        for i, poly in enumerate(slots):
-            pm = np.zeros((h, w), np.uint8)
-            cv2.fillPoly(pm, [poly], 1)
-            area = max(1, int(pm.sum()))
-            taken = False
-            for d in dets:
-                x1, y1, x2, y2 = map(int, d["box"])
-                inter = int(pm[max(0, y1):y2, max(0, x1):x2].sum())
-                if inter / area > 0.3 or point_in_poly(((x1 + x2) / 2, y2 - 0.15 * (y2 - y1)), poly):
-                    taken = True
-                    break
-            occ.append(taken)
-            draw_poly(out, poly, RED if taken else GREEN, 0.25)
-            label(out, f"P{i + 1}", int(poly[:, 0].mean()), int(poly[:, 1].mean()), RED if taken else GREEN, (255, 255, 255))
-        for d in dets:
-            box(out, d["box"], None, AMBER, 1)
-        st["vehicles"], st["occ"] = len(dets), occ
+        dets = boxes_of(ctx.predict(ctx.model_key("yolo26-detect"), img, conf=float(ctx.p("conf", 0.3)))[0])
+        out, vehicles, occ = parking_frame(img, dets, ctx.p("slots"))
+        st["vehicles"], st["occ"] = vehicles, occ
         st.setdefault("t", []).append(round(t, 2))
         st.setdefault("free", []).append(len(occ) - sum(occ))
-        lines = [f"Vehicles: {len(dets)}"]
-        if slots:
-            lines += [f"Occupied: {sum(occ)}/{len(occ)}", f"Free: {len(occ) - sum(occ)}"]
-        banner(out, lines)
         return out
 
     st = run_media(ctx, fn, caption="Parking occupancy")
@@ -427,6 +413,38 @@ def parking_occupancy(ctx):
             ctx.chart("line", "Free spaces over time", st["t"], [{"name": "Free", "values": st["free"]}], "Time (s)")
     else:
         ctx.note("Draw parking spaces on the image to get per-space occupancy.")
+
+
+def parking_frame(img, dets: list[dict], slots_param):
+    """Marks each drawn space free or occupied by the vehicles detected.
+    Shared by the lab pipeline and its live camera analyzer. Returns
+    (annotated, vehicle count, [occupied per space])."""
+    h, w = img.shape[:2]
+    slots = polygons_param(slots_param, w, h)
+    dets = [d for d in dets if d["cls"] in ("car", "truck", "bus", "motorcycle")]
+    out = img.copy()
+    occ = []
+    for i, poly in enumerate(slots):
+        pm = np.zeros((h, w), np.uint8)
+        cv2.fillPoly(pm, [poly], 1)
+        area = max(1, int(pm.sum()))
+        taken = False
+        for d in dets:
+            x1, y1, x2, y2 = map(int, d["box"])
+            inter = int(pm[max(0, y1):y2, max(0, x1):x2].sum())
+            if inter / area > 0.3 or point_in_poly(((x1 + x2) / 2, y2 - 0.15 * (y2 - y1)), poly):
+                taken = True
+                break
+        occ.append(taken)
+        draw_poly(out, poly, RED if taken else GREEN, 0.25)
+        label(out, f"P{i + 1}", int(poly[:, 0].mean()), int(poly[:, 1].mean()), RED if taken else GREEN, (255, 255, 255))
+    for d in dets:
+        box(out, d["box"], None, AMBER, 1)
+    lines = [f"Vehicles: {len(dets)}"]
+    if slots:
+        lines += [f"Occupied: {sum(occ)}/{len(occ)}", f"Free: {len(occ) - sum(occ)}"]
+    banner(out, lines)
+    return out, len(dets), occ
 
 
 # ------------------------------------------------------------------ clothing parsing
