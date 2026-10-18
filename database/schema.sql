@@ -246,6 +246,26 @@ CREATE INDEX IF NOT EXISTS idx_event_camera_time ON camera_event (camera_id, occ
 CREATE INDEX IF NOT EXISTS idx_event_open ON camera_event (workspace_id) WHERE status = 'open';
 
 -- ---------------------------------------------------------------------------
+-- camera_metric — what a camera's pipeline measured, one row per metric a minute
+--
+-- Workers sample their analyzer's metrics every frame and write each minute
+-- summarised the way the metric reads: people in a zone as an average,
+-- crossings as a total, the most fallen at once as a maximum. Kept for
+-- METRIC_RETENTION_DAYS.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS camera_metric (
+    camera_id  INTEGER NOT NULL REFERENCES camera (id) ON DELETE CASCADE,
+    bucket     TIMESTAMPTZ NOT NULL,          -- the minute
+    name       TEXT NOT NULL,                 -- in_zone, in, count:person, ...
+    agg        TEXT NOT NULL CHECK (agg IN ('avg', 'max', 'sum')),
+    value      DOUBLE PRECISION NOT NULL,     -- the minute's average, maximum or total
+    samples    INTEGER NOT NULL DEFAULT 1,    -- analysed frames behind it
+    PRIMARY KEY (camera_id, bucket, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_metric_bucket ON camera_metric (bucket);
+
+-- ---------------------------------------------------------------------------
 -- ml_model — Ultralytics weights a user uploaded
 --
 -- The file lives under WEIGHTS_DIR/custom/; file_path is its absolute path

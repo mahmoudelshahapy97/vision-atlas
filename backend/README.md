@@ -224,6 +224,28 @@ Operators set an event's status: `open`, `acknowledged`, `resolved` or
 `EVENT_RETENTION_DAYS` (30) along with their snapshots. Deleting a camera or
 a workspace removes its snapshots too.
 
+## Analytics
+
+Workers sample their analyzer's metrics on every analysed frame and write
+one `camera_metric` row per metric per minute (`metric_service`). Each row
+is summarised the way the metric reads, as the table of live pipelines
+declares:
+- an average: people in the zone
+- a total: line crossings
+- a maximum: most fallen at once
+
+`analytics_service`, ported from lost-found, answers the Analytics page for
+a window of 1, 7, 30 or 90 days in the viewer's timezone. Buckets are hourly
+for one day and daily otherwise. `generate_series` fills empty buckets. It
+returns:
+- events over time by severity
+- events by kind and by camera
+- a weekday × hour heatmap
+- status counts and the median time to handle
+- any metric per camera
+
+Per-minute metrics are kept `METRIC_RETENTION_DAYS` (90).
+
 ## API
 
 Everything is under `/api`. Interactive docs are at `/docs`.
@@ -256,6 +278,9 @@ Everything is under `/api`. Interactive docs are at `/docs`.
 | GET · PATCH | `/api/events/{id}` | ws viewer · ws operator | One event · set its status |
 | POST | `/api/events/alerts-token` | ws viewer | Token + path for the alerts WebSocket |
 | WS | `/api/ws/alerts/{workspace_id}?token=` | token | New events and status changes as they happen |
+| GET | `/api/analytics/summary?days=&camera_id=&tz=` | ws viewer | KPIs, events over time by severity, by kind, by camera, heatmap, by status |
+| GET | `/api/analytics/metrics?days=&camera_id=&name=&tz=` | ws viewer | One measured metric per camera (default: the best-covered), with the list of metrics |
+| GET | `/api/analytics/events.csv?days=&camera_id=&tz=` | ws viewer | The window's events as CSV |
 | GET | `/api/domains` · `/api/task-types` · `/api/technologies` | – | Catalog reference data with counts |
 | GET | `/api/projects` | optional | `q`, `domain`, `task`, `level`, `picks`, `status`, `tech`, `sort`, `page`, `size` |
 | GET | `/api/projects/facets` | optional | Counts per domain, task and level (each ignores its own filter) |
@@ -457,7 +482,7 @@ docker compose run --rm --no-deps -v ./backend/tests:/app/tests -v ./database:/s
   api sh -c "pip install -q -r requirements-dev.txt && pytest -q"
 
 # locally, against a Postgres on localhost:5432 and models-serve on localhost:8500
-cd backend && pytest                # API, auth, accounts, workspaces, cameras (live, WebSocket), events, catalog, progress, lab runs, uploads, custom models, model client
+cd backend && pytest                # API, auth, accounts, workspaces, cameras (live, WebSocket), events, analytics, catalog, progress, lab runs, uploads, custom models, model client
 pytest -m slow                      # runs every project lab on its sample through the real API (minutes on CPU)
 ```
 

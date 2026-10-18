@@ -30,6 +30,7 @@ import VideocamIcon from "@mui/icons-material/Videocam";
 import GridViewIcon from "@mui/icons-material/GridView";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import NotificationsIcon from "@mui/icons-material/Notifications";
+import InsightsIcon from "@mui/icons-material/Insights";
 import MenuIcon from "@mui/icons-material/Menu";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import LightModeIcon from "@mui/icons-material/LightMode";
@@ -74,6 +75,7 @@ const NAV_SECTIONS = [
       { to: "/dashboard", label: "Dashboard", icon: <DashboardIcon />, ws: "viewer" },
       { to: "/live", label: "Live", icon: <GridViewIcon />, ws: "viewer" },
       { to: "/events", label: "Events", icon: <NotificationsIcon />, ws: "viewer" },
+      { to: "/analytics", label: "Analytics", icon: <InsightsIcon />, ws: "viewer" },
       { to: "/cameras", label: "Cameras", icon: <VideocamIcon />, ws: "viewer" },
       { to: "/workspace/members", label: "Members", icon: <GroupIcon />, ws: "viewer" },
     ],

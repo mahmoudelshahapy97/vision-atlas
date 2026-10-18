@@ -17,6 +17,19 @@ export const SERIES_COLORS = [
   "#84cc16",
 ];
 
+/**
+ * Analytics charts (chart.js). A categorical order validated for colour-blind
+ * separation on both surfaces, stepped per mode (dataviz reference palette),
+ * and fixed status colours for event severity, never reused as a series.
+ * Colour follows the entity: a camera keeps its slot whatever is filtered.
+ */
+export const CHART_SERIES = {
+  light: ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"],
+  dark: ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"],
+};
+// info is a neutral grey rather than a hue, so it never reads as a camera's series colour.
+export const SEVERITY_COLORS = { critical: "#d03b3b", warning: "#fab219", info: "#8b909a" };
+
 // Neon cyan is the interaction colour (hover borders, focus rings, outlines)
 // in the dark "obsidian + glass" look. Light mode falls back to primary.
 const NEON = "#00F0FF";

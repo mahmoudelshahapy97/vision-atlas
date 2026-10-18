@@ -26,6 +26,7 @@ import cv2
 import numpy as np
 
 from app.core.config import config
+from app.services.metric_service import MinuteAccumulator
 from app.services.rtsp_reader import FrameReader
 from app.vision import live
 from app.vision.core import fit
@@ -58,7 +59,9 @@ def encode_jpeg(img: np.ndarray, quality: int) -> bytes:
 class CameraWorker:
     """Reads one camera, runs its live analyzer and publishes annotated frames."""
 
-    def __init__(self, camera: Dict[str, Any], on_output: Optional[Callable] = None) -> None:
+    def __init__(
+        self, camera: Dict[str, Any], on_output: Optional[Callable] = None, on_metrics: Optional[Callable] = None
+    ) -> None:
         self.camera = camera
         self.camera_id: int = camera["id"]
         self.workspace_id: int = camera["workspace_id"]
@@ -66,8 +69,13 @@ class CameraWorker:
         self.pipeline: Optional[str] = camera["pipeline"]
         self.reader = FrameReader(camera["source_url"])
         self.analyzer: Optional[live.LiveAnalyzer] = None
-        # Phase hook: events and metrics go here (recorded by the event service).
+        # Events go to on_output (event_service), each finished minute of
+        # metrics to on_metrics (metric_service); both set by the manager.
         self._on_output = on_output
+        self._on_metrics = on_metrics
+        declared = live.LIVE_ANALYZERS[self.pipeline].metrics if self.pipeline in live.LIVE_ANALYZERS else {}
+        self.minutes = MinuteAccumulator(declared)
+        self._writes: set = set()
 
         self._task: Optional[asyncio.Task] = None
         self._stop = asyncio.Event()
@@ -120,6 +128,10 @@ class CameraWorker:
         if not self._reading:
             await asyncio.to_thread(self.reader.release)
         await self._close_analyzer()
+        if self._on_metrics and self.minutes.minute is not None:
+            await self._write_metrics(self.minutes.flush())  # the minute in progress
+        if self._writes:
+            await asyncio.wait(set(self._writes), timeout=5)
         self.connected = False
         self.state = STOPPED
         async with self._frame_ready:
@@ -279,11 +291,23 @@ class CameraWorker:
             self.recent_events.appendleft(
                 {"kind": ev.kind, "label": ev.label, "severity": ev.severity, "track_id": ev.track_id, "at": self.last_frame_at}
             )
-        if self._on_output and (out.events or out.metrics):
+        if self._on_output and out.events:
             try:
                 await self._on_output(self, out, frame)
             except Exception as e:
                 logger.error("Camera %s: couldn't record output: %s", self.name, e, exc_info=True)
+        if self._on_metrics and out.metrics:
+            finished = self.minutes.add(out.metrics, self.last_frame_at)
+            if finished:  # written in the background: a slow database mustn't stall the picture
+                task = asyncio.create_task(self._write_metrics(finished))
+                self._writes.add(task)
+                task.add_done_callback(self._writes.discard)
+
+    async def _write_metrics(self, rows) -> None:
+        try:
+            await self._on_metrics(self.camera_id, rows)
+        except Exception as e:
+            logger.warning("Camera %s: couldn't write metrics: %s", self.name, e)
 
     def _tick_fps(self, now: float) -> None:
         if self._last_processed_at is not None:
@@ -318,8 +342,9 @@ class StreamManager:
         self._supervisor: Optional[asyncio.Task] = None
         self._restarts: Dict[int, int] = {}
         self._retry_after: Dict[int, float] = {}
-        # Set by the event service (phase 4): called with (worker, LiveOutput, frame).
+        # Set at startup (app/main.py): events -> event_service, metrics -> metric_service.
         self.on_output: Optional[Callable] = None
+        self.on_metrics: Optional[Callable] = None
 
     # -------------------------------------------------------------- lifecycle
     async def startup(self) -> None:
@@ -360,7 +385,7 @@ class StreamManager:
             if existing:
                 await existing.stop()
             self._prepare(camera)
-            worker = CameraWorker(camera, self.on_output)
+            worker = CameraWorker(camera, self.on_output, self.on_metrics)
             self.workers[camera["id"]] = worker
             await worker.start()
             return worker.status()

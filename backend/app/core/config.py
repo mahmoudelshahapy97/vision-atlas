@@ -164,6 +164,7 @@ class Settings(BaseSettings):
     worker_restart_backoff_max_s: float = 300.0
     event_retention_days: int = 30  # older camera events and their snapshots are deleted daily
     event_snapshot_quality: int = 85
+    metric_retention_days: int = 90  # per-minute camera metrics behind the analytics charts
 
 
 config = Settings()

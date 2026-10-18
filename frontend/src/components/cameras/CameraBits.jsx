@@ -35,7 +35,22 @@ export function CameraStateChip({ state, error, size = "small" }) {
   return error && state !== "running" ? <Tooltip title={error}>{chip}</Tooltip> : chip;
 }
 
-const METRIC_LABEL = { objects: "Objects", in: "In", out: "Out", tracked: "Tracked", in_zone: "In zone" };
+const METRIC_LABEL = {
+  objects: "Objects",
+  in: "In",
+  out: "Out",
+  tracked: "Tracked",
+  in_zone: "In zone",
+  people: "People",
+  fallen: "Fallen",
+  watched: "Watched objects",
+  unattended: "Unattended",
+  workers: "Workers",
+  violations: "PPE violations",
+  vehicles: "Vehicles",
+  occupied: "Occupied spaces",
+  free: "Free spaces",
+};
 
 /** "count:person" -> "person", "in_zone" -> "In zone". */
 export function metricLabel(name) {

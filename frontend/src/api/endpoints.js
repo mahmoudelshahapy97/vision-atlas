@@ -71,6 +71,13 @@ export const events = {
   alertsToken: () => api("/events/alerts-token", { method: "POST" }),
 };
 
+/** Workspace-scoped. `tz` is the viewer's IANA timezone. */
+export const analytics = {
+  summary: (params, opts) => api("/analytics/summary", { params, ...opts }),
+  metrics: (params, opts) => api("/analytics/metrics", { params, ...opts }),
+  eventsCsv: (params) => apiBlob(`/analytics/events.csv?${new URLSearchParams(params)}`),
+};
+
 export const catalog = {
   domains: (opts) => api("/domains", opts),
   taskTypes: (opts) => api("/task-types", opts),
@@ -118,4 +125,4 @@ export const models = {
   remove: (id) => api(`/models/custom/${id}`, { method: "DELETE" }),
 };
 
-export default { health, auth, users, workspaces, cameras, events, catalog, projects, progress, me, lab, runs, models };
+export default { health, auth, users, workspaces, cameras, events, analytics, catalog, projects, progress, me, lab, runs, models };

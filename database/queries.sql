@@ -252,6 +252,32 @@ FROM camera_event WHERE workspace_id = $1;
 DELETE FROM camera_event WHERE occurred_at < NOW() - make_interval(days => $1) RETURNING snapshot_key;
 
 
+-- :name metric_service.write
+-- a camera worker, once a minute: merges with a row already written for that minute
+INSERT INTO camera_metric (camera_id, bucket, name, agg, value, samples)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (camera_id, bucket, name) DO UPDATE SET
+    value = CASE camera_metric.agg
+        WHEN 'sum' THEN camera_metric.value + EXCLUDED.value
+        WHEN 'max' THEN GREATEST(camera_metric.value, EXCLUDED.value)
+        ELSE (camera_metric.value * camera_metric.samples + EXCLUDED.value * EXCLUDED.samples)
+             / (camera_metric.samples + EXCLUDED.samples)
+    END,
+    samples = camera_metric.samples + EXCLUDED.samples;
+
+-- :name analytics_service.summary (series)
+-- GET /api/analytics/summary: events per bucket in the viewer's timezone, empty buckets included
+WITH buckets AS (SELECT generate_series($3::timestamp, $4::timestamp, $5::interval) AS bucket_start),
+ev AS (
+    SELECT date_trunc($6, e.occurred_at AT TIME ZONE $7) AS bucket_start, e.severity
+    FROM camera_event e WHERE e.workspace_id = $1 AND e.occurred_at >= $2
+)
+SELECT b.bucket_start, COUNT(ev.severity) AS events,
+       COUNT(*) FILTER (WHERE ev.severity = 'critical') AS critical
+FROM buckets b LEFT JOIN ev ON ev.bucket_start = b.bucket_start
+GROUP BY b.bucket_start ORDER BY b.bucket_start;
+
+
 -- ===========================================================================
 -- 5. LAB RUNS
 -- ===========================================================================

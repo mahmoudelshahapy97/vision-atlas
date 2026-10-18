@@ -25,6 +25,7 @@ from app.core.logging_config import setup_logging
 from app.services.object_store import object_store
 from app.services.run_service import run_service
 from app.services.event_service import event_service, wait_for_uploads
+from app.services.metric_service import metric_service
 from app.services.stream_manager import stream_manager
 from app.services.user_service import user_service
 from app.vision import runner
@@ -80,6 +81,7 @@ async def lifespan(app: FastAPI):
 
     runner.start(asyncio.get_running_loop())
     stream_manager.on_output = event_service.record_output  # live analyzers' events -> camera_event
+    stream_manager.on_metrics = metric_service.write  # and their per-minute metrics -> camera_metric
     try:
         await stream_manager.startup()  # resumes enabled cameras, then supervises them
     except Exception as e:

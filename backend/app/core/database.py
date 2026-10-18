@@ -250,6 +250,19 @@ SCHEMA_UPGRADES: tuple = (
     END $$;
     """,
     "CREATE INDEX IF NOT EXISTS idx_media_object_event ON media_object (event_id) WHERE event_id IS NOT NULL;",
+    # per-minute camera metrics
+    """
+    CREATE TABLE IF NOT EXISTS camera_metric (
+        camera_id  INTEGER NOT NULL REFERENCES camera (id) ON DELETE CASCADE,
+        bucket     TIMESTAMPTZ NOT NULL,          -- the minute
+        name       TEXT NOT NULL,                 -- in_zone, in, count:person, ...
+        agg        TEXT NOT NULL CHECK (agg IN ('avg', 'max', 'sum')),
+        value      DOUBLE PRECISION NOT NULL,     -- the minute's average, maximum or total
+        samples    INTEGER NOT NULL DEFAULT 1,    -- analysed frames behind it
+        PRIMARY KEY (camera_id, bucket, name)
+    );
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_metric_bucket ON camera_metric (bucket);",
 )
 
 

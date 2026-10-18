@@ -15,6 +15,7 @@ catalog as an admin.
 - a **live wall** of annotated streams
 - **events** with snapshots and live alerts
 - a **dashboard**
+- **analytics**: trends, heatmaps and per-camera counts, in your timezone
 - **members** with viewer, operator or admin roles
 
 System admins manage accounts and workspaces.
@@ -33,7 +34,7 @@ browser ──same origin──> web (Vite / nginx) ──proxy──> api ─�
 
 | Tier | Directory | Stack |
 |---|---|---|
-| Console | [`frontend/`](frontend) | React 18, Vite, React Router, hand-written CSS, KaTeX |
+| Console | [`frontend/`](frontend) | React 18, Vite, React Router, MUI, Chart.js, KaTeX |
 | API + Vision Lab | [`backend/`](backend) | FastAPI, asyncpg, OpenCV: the 79 lab pipelines, no PyTorch |
 | Model server | [`models-serve/`](models-serve) | FastAPI, PyTorch, Ultralytics YOLO26/YOLOE-26, SAM 2.1, EasyOCR, Real-ESRGAN, LaMa, MiDaS … |
 | Database | [`database/`](database) | PostgreSQL 17: schema, catalog seed, reference queries |

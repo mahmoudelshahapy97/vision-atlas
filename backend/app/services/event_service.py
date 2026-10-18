@@ -211,10 +211,14 @@ class EventService:
         return len(rows)
 
     async def purge_forever(self) -> None:
-        """Daily retention loop, started with the camera workers."""
+        """Daily retention loop, started with the camera workers: events, and
+        the per-minute metrics behind the analytics charts."""
+        from app.services.metric_service import metric_service
+
         while True:
             try:
                 await self.purge()
+                await metric_service.purge(config.metric_retention_days)
             except asyncio.CancelledError:
                 raise
             except Exception as e:
