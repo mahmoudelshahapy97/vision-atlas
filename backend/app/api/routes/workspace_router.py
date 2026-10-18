@@ -18,7 +18,7 @@ from app.schemas.workspace_schemas import (
 )
 from app.services.user_service import user_service
 from app.services.workspace_service import workspace_service
-from app.vision.core import PIPELINES
+from app.vision import live
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["workspaces"], prefix="/workspaces")
@@ -27,10 +27,11 @@ router = APIRouter(tags=["workspaces"], prefix="/workspaces")
 def _check_pipelines(names: Optional[List[str]]) -> Optional[List[str]]:
     if names is None:
         return None
-    unknown = sorted(set(names) - set(PIPELINES))
+    unknown = sorted(set(names) - set(live.LIVE_ANALYZERS))
     if unknown:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Unknown pipelines: {', '.join(unknown)}."
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Not live pipelines: {', '.join(unknown)}.",
         )
     return sorted(set(names))
 
@@ -46,6 +47,12 @@ async def _check_name(name: Optional[str], exclude_id: Optional[int] = None) -> 
 async def my_workspaces(current_user: Dict[str, Any] = Depends(get_current_user)) -> List[Dict[str, Any]]:
     """The switcher's list: workspaces the caller belongs to, with their role."""
     return await workspace_service.list_for_user(current_user)
+
+
+@router.get("/pipelines")
+async def live_pipelines(_: Dict[str, Any] = Depends(require_role("admin"))) -> List[Dict[str, str]]:
+    """What a workspace's enabled_pipelines may name: the live pipelines."""
+    return [{"name": p["name"], "title": p["title"]} for p in live.public_list()]
 
 
 @router.get("", response_model=List[WorkspaceResponse])

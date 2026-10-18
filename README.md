@@ -8,8 +8,18 @@ point-cloud viewer. You can also upload your own Ultralytics models, track
 which projects you're planning, building or have finished, and edit the
 catalog as an admin.
 
+**Operations.** Teams get workspaces. A workspace holds:
+- **cameras** (RTSP/HTTP streams or looping test videos), each running a lab
+  pipeline continuously: detection, line counting or a restricted zone
+- a **live wall** of annotated streams
+- **members** with viewer, operator or admin roles
+
+System admins manage accounts and workspaces.
+
 ```
 browser ──same origin──> web (Vite / nginx) ──proxy──> api ──> postgres (records + presigned links)
+   │  live views: WebSocket /api/ws/cameras/<id>        │
+   │                                 camera workers ────┼─< RTSP / HTTP cameras (one asyncio task each)
    │                                                    │
    │                                   lab thread pool ─┼─> minio, bucket "atlas" (run inputs and outputs)
    └──presigned links─────────────────────────────────> minio
@@ -108,6 +118,11 @@ docker compose run --rm --no-deps -v ./models-serve/tests:/app/tests \
   models sh -c "pip install -q -r requirements-dev.txt && pytest -q"   # model server
 cd frontend && npm run build                                          # console builds
 ```
+
+To try cameras without real ones, run `docker compose --profile testing up -d mediamtx`.
+It serves the sample videos as `rtsp://mediamtx:8554/street` and
+`rtsp://mediamtx:8554/fall`. It publishes no host port. A camera can also use
+`sample:street.mp4`, or `file:<name>` for a video you put in `camera-files/`.
 
 ## CI/CD
 

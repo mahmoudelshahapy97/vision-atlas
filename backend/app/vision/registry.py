@@ -299,7 +299,11 @@ class RemoteTracker(RemoteModel):
     def __init__(self, manager: "ModelManager", key: str):
         super().__init__(manager, key)
         self.session = uuid.uuid4().hex
-        weakref.finalize(self, _end_session, manager._client, self.session)
+        self._end = weakref.finalize(self, _end_session, manager._client, self.session)
+
+    def close(self) -> None:
+        """End the session now rather than when this object is collected (live cameras)."""
+        self._end()
 
     def track(self, source, tracker: str = "bytetrack.yaml", **kw) -> list[RemoteResult]:
         img = _sources(source)[0][0]

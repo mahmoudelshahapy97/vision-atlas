@@ -6,8 +6,8 @@ from collections.abc import Callable
 import cv2
 import numpy as np
 
-from ..core import (Ctx, box, color_for, finish_video, frames, is_video, overlay_mask, video_info,
-                    video_output)
+from ..core import (AMBER, GREEN, RED, Ctx, banner, box, color_for, draw_poly, finish_video, frames, is_video,
+                    overlay_mask, point_in_poly, polygons_param, video_info, video_output)
 
 
 def filter_classes(dets: list[dict], names: list[str] | None) -> list[dict]:
@@ -126,3 +126,48 @@ def prompts_list(value: str | list | None) -> list[str]:
     if isinstance(value, list):
         return [str(v).strip() for v in value if str(v).strip()]
     return [p.strip() for p in (value or "").replace("\n", ",").split(",") if p.strip()]
+
+
+class ZoneMonitor:
+    """Restricted-zone logic for one frame at a time, shared by the
+    restricted_zone lab pipeline and its live camera analyzer.
+
+    step() takes the detections of one frame (tracked, so ids persist) and
+    returns the annotated frame, how many are inside, and the tracks that
+    entered on this frame. A track counts as inside when its feet (the bottom
+    centre of its box) are inside the polygon.
+    """
+
+    def __init__(self, zone_param, watch: set[str]):
+        self.zone_param = zone_param
+        self.watch = watch
+        self.inside_ids: set[int] = set()
+        self.dwell: dict[int, float] = {}
+
+    def zone(self, img: np.ndarray) -> np.ndarray | None:
+        h, w = img.shape[:2]
+        zones = polygons_param(self.zone_param, w, h)
+        return zones[0] if zones else None
+
+    def step(self, img: np.ndarray, dets: list[dict], dt: float) -> tuple[np.ndarray, int, list[dict]]:
+        zone = self.zone(img)
+        out = img.copy()
+        inside, entered, now_inside = 0, [], set()
+        for d in dets:
+            if d["cls"] not in self.watch:
+                continue
+            foot = ((d["box"][0] + d["box"][2]) / 2, d["box"][3])
+            hit = zone is not None and point_in_poly(foot, zone)
+            inside += hit
+            if hit and d["id"] is not None:
+                now_inside.add(d["id"])
+                if d["id"] not in self.dwell:
+                    entered.append(d)
+                self.dwell[d["id"]] = self.dwell.get(d["id"], 0) + dt
+            box(out, d["box"], ("VIOLATION " if hit else "") + d["cls"] + (f" #{d['id']}" if d["id"] is not None else ""),
+                RED if hit else GREEN)
+        self.inside_ids = now_inside
+        if zone is not None:
+            draw_poly(out, zone, RED if inside else AMBER, 0.2)
+        banner(out, [f"In zone: {inside}"], (40, 40, 160) if inside else (30, 30, 30))
+        return out, inside, entered

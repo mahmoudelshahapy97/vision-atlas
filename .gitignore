@@ -39,3 +39,7 @@ backend/weights/
 backend/media/
 models-serve/models/*
 !models-serve/models/.gitkeep
+
+# ===== Camera test videos (file:<name> sources) =====
+camera-files/*
+!camera-files/.gitkeep

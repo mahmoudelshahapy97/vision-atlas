@@ -10,7 +10,7 @@ from ..core import (AMBER, BLUE, CONF, GREEN, IMAGE, MEDIA, RED, STRIDE, VIDEO, 
                     box, boxes_of, center, color_for, finish_video, frames, is_video, label, pipeline, point_in_poly,
                     polygons_param, draw_poly, scale_for, video_info, video_output)
 from ..registry import manager
-from .common import run_media
+from .common import ZoneMonitor, run_media
 
 # COCO keypoint indices
 NOSE, LEYE, REYE, LEAR, REAR, LSH, RSH, LEL, REL, LWR, RWR, LHIP, RHIP, LKN, RKN, LAN, RAN = range(17)
@@ -416,36 +416,19 @@ def gesture_control(ctx):
 def restricted_zone(ctx):
     f = ctx.file()
     tracker = manager.fresh(ctx.model_key("yolo26-detect")) if is_video(f) else None
-    watch = set(ctx.p("classes", ["person"]) or ["person"])
+    monitor = ZoneMonitor(ctx.p("zone"), set(ctx.p("classes", ["person"]) or ["person"]))
 
     def fn(img, t, st):
-        h, w = img.shape[:2]
-        zones = polygons_param(ctx.p("zone"), w, h)
-        if not zones:
+        if monitor.zone(img) is None:
             raise UserError("Draw the restricted zone on the image first.")
-        zone = zones[0]
         if tracker is not None:
             r = tracker.track(img, persist=True, conf=float(ctx.p("conf", 0.25)))[0]
         else:
             r = ctx.predict(ctx.model_key("yolo26-detect"), img, conf=float(ctx.p("conf", 0.25)))[0]
-        dets = [d for d in boxes_of(r) if d["cls"] in watch]
-        out = img.copy()
-        inside = 0
-        dwell = st.setdefault("dwell", {})
-        for d in dets:
-            foot = ((d["box"][0] + d["box"][2]) / 2, d["box"][3])
-            hit = point_in_poly(foot, zone)
-            inside += hit
-            if hit and d["id"] is not None:
-                if d["id"] not in dwell:
-                    st.setdefault("events", []).append([round(t, 1), d["id"], d["cls"], "entered"])
-                dwell[d["id"]] = dwell.get(d["id"], 0) + 1 / st.get("fps", 25)
-            box(out, d["box"], ("VIOLATION " if hit else "") + d["cls"] + (f" #{d['id']}" if d["id"] is not None else ""),
-                RED if hit else GREEN)
-        draw_poly(out, zone, RED if inside else AMBER, 0.2)
-        st["inside"] = inside
+        out, inside, entered = monitor.step(img, boxes_of(r), 1 / st.get("fps", 25))
+        for d in entered:
+            st.setdefault("events", []).append([round(t, 1), d["id"], d["cls"], "entered"])
         st["max_inside"] = max(st.get("max_inside", 0), inside)
-        banner(out, [f"In zone: {inside}"], (40, 40, 160) if inside else (30, 30, 30))
         return out
 
     st = run_media(ctx, fn, caption="Restricted zone")
@@ -453,7 +436,7 @@ def restricted_zone(ctx):
              "bad" if st.get("max_inside") else "good")
     if st.get("events"):
         ctx.stat("Entries", len(st["events"]), "bad")
-        rows = [[*e, round(st["dwell"].get(e[1], 0), 1)] for e in st["events"]]
+        rows = [[*e, round(monitor.dwell.get(e[1], 0), 1)] for e in st["events"]]
         ctx.table("Zone entries", ["Time (s)", "Track", "Class", "Event", "Seconds inside"], rows, "zone_events.csv")
 
 

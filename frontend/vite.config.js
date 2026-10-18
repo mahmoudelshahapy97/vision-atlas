@@ -17,7 +17,8 @@ export default defineConfig(({ mode }) => {
   const minio = env.MINIO_PROXY_TARGET || "http://localhost:9000";
 
   const proxy = {
-    "/api": { target, changeOrigin: true },
+    // ws: live camera views (/api/ws/cameras/<id>).
+    "/api": { target, changeOrigin: true, ws: true },
     // Uploaded inputs and run outputs (annotated images, videos, CSV/ZIP files).
     "/media": { target, changeOrigin: true },
     [`/${env.MINIO_BUCKET || "atlas"}/`]: { target: minio, changeOrigin: true },

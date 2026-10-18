@@ -139,6 +139,36 @@ export async function apiForm(path, formData) {
   return send(API_BASE + path, () => ({ method: "POST", headers: authHeaders(), body: formData }));
 }
 
+/** A binary response (a camera snapshot) as a Blob, with the same auth and
+ *  refresh handling as api(). */
+export async function apiBlob(path, { method = "GET", body, signal } = {}, retry = true) {
+  const json = body !== undefined ? JSON.stringify(body) : undefined;
+  const init = () => ({
+    method,
+    signal,
+    body: json,
+    headers: { ...authHeaders(), ...(json !== undefined ? { "Content-Type": "application/json" } : {}) },
+  });
+  let res;
+  try {
+    res = await fetch(API_BASE + path, init());
+  } catch (e) {
+    if (isAbort(e)) throw e;
+    throw new ApiError("Can't reach the server. Check that the backend is running.", 0);
+  }
+  if (res.status === 401 && token && retry && refreshToken && (await renewSession())) {
+    return apiBlob(path, { method, body, signal }, false);
+  }
+  if (!res.ok) throw new ApiError(errorMessage(await res.json().catch(() => null), res.status), res.status);
+  return res.blob();
+}
+
+/** ws(s):// URL on this origin (or VITE_API_URL's) for a path like "/api/ws/...". */
+export function socketUrl(path) {
+  const origin = API_ORIGIN || window.location.origin;
+  return origin.replace(/^http/, "ws") + path;
+}
+
 /** GET outside the /api prefix, for routes FastAPI mounts on the app root (/health). */
 export async function rootGet(path, { signal } = {}) {
   return send(API_ORIGIN + path, () => ({ signal }));

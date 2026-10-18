@@ -215,6 +215,17 @@ ORDER BY w.name;
 SELECT role FROM workspace_member WHERE workspace_id = $1 AND user_id = $2;
 
 
+-- :name camera_service.list_runnable
+-- the camera supervisor (every few seconds) and startup: enabled cameras of
+-- active workspaces, with the weights path of an uploaded model they use
+SELECT c.*, m.file_path AS model_path
+FROM camera c
+JOIN workspace w ON w.id = c.workspace_id AND w.is_active
+LEFT JOIN ml_model m ON c.params ? 'model' AND c.params->>'model' = 'custom:' || m.id
+WHERE c.enabled
+ORDER BY c.id;
+
+
 -- ===========================================================================
 -- 5. LAB RUNS
 -- ===========================================================================

@@ -18,7 +18,7 @@ from app.core.config import config
 
 logger = logging.getLogger(__name__)
 
-TokenType = Literal["access", "refresh"]
+TokenType = Literal["access", "refresh", "media"]
 
 
 def hash_password(password: str) -> str:
@@ -58,6 +58,22 @@ def create_refresh_token(user_id: int) -> Tuple[str, str]:
     jti = uuid.uuid4().hex
     token = _encode({"sub": str(user_id)}, "refresh", timedelta(days=config.refresh_token_expire_days), jti)
     return token, jti
+
+
+def create_media_token(user_id: int, scope: str, resource_id: int, minutes: int) -> str:
+    """A short-lived token for one resource, for URLs a browser opens without
+    an Authorization header (a WebSocket, an <img>). Scope and resource are
+    checked by decode_media_token, so a token for one camera opens nothing else."""
+    return _encode(
+        {"sub": str(user_id), "scope": scope, "rid": resource_id}, "media", timedelta(minutes=minutes)
+    )
+
+
+def decode_media_token(token: str, scope: str, resource_id: int) -> Optional[Dict[str, Any]]:
+    payload = decode_token(token, "media")
+    if not payload or payload.get("scope") != scope or payload.get("rid") != resource_id:
+        return None
+    return payload
 
 
 def decode_token(token: str, expected: TokenType = "access") -> Optional[Dict[str, Any]]:

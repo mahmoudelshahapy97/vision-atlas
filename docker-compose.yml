@@ -12,7 +12,8 @@ name: vision-atlas
 # MODELS_TOKEN in backend/.env, then:  docker compose up -d --scale models=0
 #
 # Host ports are 5432 (Postgres), 8000 (API), 8080 (console) and 9000/9001
-# (MinIO API/console). They are the same ports lost-found publishes by default,
+# (MinIO API/console). `--profile testing` adds mediamtx (test RTSP cameras,
+# no host port). They are the same ports lost-found publishes by default,
 # so only one of the two stacks can run at a time unless one is remapped.
 #
 # Images, videos and documents (lab inputs and outputs) are stored in MinIO;
@@ -85,9 +86,11 @@ services:
     volumes:
       - atlas-data:/data          # uploaded models; scratch for running labs
       - ./backend/logs:/app/logs
+      # Videos a camera can loop as if live (source "file:<name>").
+      - ./camera-files:/data/camera-files:ro
     # Let a running pipeline write its result before the container stops.
     stop_grace_period: 30s
-    # Runs are tracked in this process; one replica only.
+    # Runs and camera workers live in this process; one replica only.
     deploy:
       replicas: 1
 
@@ -123,6 +126,23 @@ services:
       MINIO_BUCKET: ${MINIO_BUCKET:-atlas}
     ports:
       - "8080:80"
+
+  # Test RTSP cameras, only with --profile testing: the lab's sample videos,
+  # looped, at rtsp://mediamtx:8554/street and rtsp://mediamtx:8554/fall.
+  # Those URLs are resolved by the api container. No host port, so it can't
+  # clash with anything on this machine; ffmpeg starts when a camera connects.
+  mediamtx:
+    image: bluenviron/mediamtx:1.21.2-ffmpeg
+    profiles: ["testing"]
+    restart: unless-stopped
+    environment:
+      MTX_PROTOCOLS: tcp
+      MTX_PATHS_STREET_RUNONDEMAND: ffmpeg -re -stream_loop -1 -i /videos/street.mp4 -c copy -f rtsp rtsp://localhost:8554/street
+      MTX_PATHS_STREET_RUNONDEMANDRESTART: "yes"
+      MTX_PATHS_FALL_RUNONDEMAND: ffmpeg -re -stream_loop -1 -i /videos/fall.mp4 -c copy -f rtsp rtsp://localhost:8554/fall
+      MTX_PATHS_FALL_RUNONDEMANDRESTART: "yes"
+    volumes:
+      - ./backend/app/vision/samples:/videos:ro
 
   # S3-compatible object storage for lab inputs and outputs (images, videos,
   # CSV/JSON/text downloads). Inside the network: http://minio:9000. Browsers

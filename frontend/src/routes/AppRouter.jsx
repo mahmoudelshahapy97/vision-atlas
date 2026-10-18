@@ -20,6 +20,10 @@ const ProjectForm = lazy(() => import("../pages/admin/ProjectForm"));
 const Users = lazy(() => import("../pages/admin/Users"));
 const Workspaces = lazy(() => import("../pages/admin/Workspaces"));
 const Members = lazy(() => import("../pages/workspace/Members"));
+const CameraList = lazy(() => import("../pages/cameras/CameraList"));
+const CameraForm = lazy(() => import("../pages/cameras/CameraForm"));
+const CameraDetail = lazy(() => import("../pages/cameras/CameraDetail"));
+const LiveWall = lazy(() => import("../pages/LiveWall"));
 const NotFound = lazy(() => import("../pages/NotFound"));
 
 export default function AppRouter({ mode, onToggleMode }) {
@@ -55,6 +59,13 @@ export default function AppRouter({ mode, onToggleMode }) {
           <Route path="/users" element={<RequireAuth minimum="admin"><Users /></RequireAuth>} />
           <Route path="/workspaces" element={<RequireAuth minimum="admin"><Workspaces /></RequireAuth>} />
           <Route path="/workspace/members" element={<RequireAuth><Members /></RequireAuth>} />
+          <Route path="/live" element={<RequireAuth><LiveWall /></RequireAuth>} />
+          <Route path="/cameras">
+            <Route index element={<RequireAuth><CameraList /></RequireAuth>} />
+            <Route path="new" element={<RequireAuth><CameraForm /></RequireAuth>} />
+            <Route path=":id" element={<RequireAuth><CameraDetail /></RequireAuth>} />
+            <Route path=":id/edit" element={<RequireAuth><CameraForm /></RequireAuth>} />
+          </Route>
 
           <Route path="*" element={<NotFound />} />
         </Route>

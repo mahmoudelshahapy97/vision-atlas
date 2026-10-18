@@ -144,5 +144,24 @@ class Settings(BaseSettings):
     minio_region: str = "us-east-1"  # fixed so signing never asks the server
     minio_url_expire_hours: int = 168  # presigned link lifetime; S3 allows at most 7 days
 
+    # =========================================================================
+    # CAMERAS (live pipelines; see app/services/stream_manager.py)
+    # =========================================================================
+    # Every live camera sends target_fps frames a second to models-serve, so
+    # this cap is about the model server's capacity, not the API's.
+    max_live_cameras: int = 8
+    camera_files_dir: Path = Path("/data/camera-files")  # "file:<name>" sources; looped like a live stream
+    rtsp_transport: str = "tcp"
+    rtsp_open_timeout: float = 15.0  # seconds without a frame before a source counts as dead
+    rtsp_read_failure_limit: int = 30
+    rtsp_reconnect_delay_base: float = 2.0
+    rtsp_reconnect_delay_max: float = 30.0
+    camera_max_side: int = 1280  # frames are downscaled to this before analysis
+    stream_jpeg_quality: int = 75
+    live_token_minutes: int = 10  # lifetime of the token a browser opens a live view with
+    worker_supervision_interval_s: float = 10.0
+    worker_restart_backoff_base_s: float = 5.0
+    worker_restart_backoff_max_s: float = 300.0
+
 
 config = Settings()

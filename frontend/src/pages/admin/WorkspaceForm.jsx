@@ -11,7 +11,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 
-import { lab, workspaces } from "../../api/endpoints";
+import { workspaces } from "../../api/endpoints";
 import { useToast } from "../../components/Toast";
 import { useAsync } from "../../hooks/useAsync";
 
@@ -20,7 +20,7 @@ const EMPTY = { name: "", description: "", max_cameras: 16, all: true, pipelines
 /** Create or edit a workspace (system admins). `editing` null means new. */
 export function WorkspaceForm({ open, editing, onClose, onSaved }) {
   const toast = useToast();
-  const pipelines = useAsync((opts) => (open ? lab.pipelines(opts) : null), [open]);
+  const pipelines = useAsync((opts) => (open ? workspaces.livePipelines(opts) : null), [open]);
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);

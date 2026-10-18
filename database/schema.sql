@@ -190,6 +190,33 @@ CREATE TABLE IF NOT EXISTS workspace_member (
 CREATE INDEX IF NOT EXISTS idx_workspace_member_user ON workspace_member (user_id);
 
 -- ---------------------------------------------------------------------------
+-- camera — a live video source in a workspace, optionally running a pipeline
+--
+-- Runtime state (connected, fps, last error) lives in the API process (one
+-- worker per running camera), not here.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS camera (
+    id            SERIAL PRIMARY KEY,
+    workspace_id  INTEGER NOT NULL REFERENCES workspace (id) ON DELETE CASCADE,
+    name          TEXT NOT NULL,
+    -- rtsp(s)://, http(s)://, sample:<lab sample video> or file:<name under CAMERA_FILES_DIR>
+    source_url    TEXT NOT NULL,
+    location      TEXT,
+    -- The operator's intent: enabled cameras run, and are restarted when they fail.
+    enabled       BOOLEAN NOT NULL DEFAULT FALSE,
+    pipeline      TEXT,                               -- live pipeline; NULL = live view only
+    params        JSONB NOT NULL DEFAULT '{}'::jsonb, -- its settings (zones, lines, classes, model)
+    target_fps    REAL NOT NULL DEFAULT 5 CHECK (target_fps > 0 AND target_fps <= 30),
+    created_by    INTEGER REFERENCES app_user (id) ON DELETE SET NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (workspace_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_camera_workspace ON camera (workspace_id);
+CREATE INDEX IF NOT EXISTS idx_camera_enabled ON camera (enabled) WHERE enabled;
+
+-- ---------------------------------------------------------------------------
 -- ml_model — Ultralytics weights a user uploaded
 --
 -- The file lives under WEIGHTS_DIR/custom/; file_path is its absolute path

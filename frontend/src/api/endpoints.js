@@ -2,7 +2,7 @@
 // function per route. Pages call these instead of building paths themselves.
 // `opts` carries { signal } from useAsync / usePolling.
 
-import { api, apiForm, rootGet } from "./client";
+import { api, apiBlob, apiForm, rootGet } from "./client";
 
 // /health is mounted on the app root, outside the /api prefix.
 export const health = {
@@ -34,6 +34,7 @@ export const users = {
 
 export const workspaces = {
   mine: (opts) => api("/workspaces/mine", opts),
+  livePipelines: (opts) => api("/workspaces/pipelines", opts),
   list: (opts) => api("/workspaces", opts),
   get: (id, opts) => api(`/workspaces/${id}`, opts),
   create: (payload) => api("/workspaces", { method: "POST", body: payload }),
@@ -43,6 +44,22 @@ export const workspaces = {
   addMember: (id, email, role) => api(`/workspaces/${id}/members`, { method: "POST", body: { email, role } }),
   setMemberRole: (id, userId, role) => api(`/workspaces/${id}/members/${userId}`, { method: "PATCH", body: { role } }),
   removeMember: (id, userId) => api(`/workspaces/${id}/members/${userId}`, { method: "DELETE" }),
+};
+
+/** Workspace-scoped: the client sends the active workspace (X-Workspace-Id). */
+export const cameras = {
+  pipelines: (opts) => api("/cameras/pipelines", opts),
+  list: (opts) => api("/cameras", opts),
+  get: (id, opts) => api(`/cameras/${id}`, opts),
+  create: (payload) => api("/cameras", { method: "POST", body: payload }),
+  update: (id, payload) => api(`/cameras/${id}`, { method: "PATCH", body: payload }),
+  remove: (id) => api(`/cameras/${id}`, { method: "DELETE" }),
+  start: (id) => api(`/cameras/${id}/start`, { method: "POST" }),
+  stop: (id) => api(`/cameras/${id}/stop`, { method: "POST" }),
+  liveToken: (id) => api(`/cameras/${id}/live-token`, { method: "POST" }),
+  /** JPEG Blobs */
+  snapshot: (id, annotated = false, opts) => apiBlob(`/cameras/${id}/snapshot${annotated ? "?annotated=true" : ""}`, opts),
+  preview: (sourceUrl) => apiBlob("/cameras/preview", { method: "POST", body: { source_url: sourceUrl } }),
 };
 
 export const catalog = {
@@ -92,4 +109,4 @@ export const models = {
   remove: (id) => api(`/models/custom/${id}`, { method: "DELETE" }),
 };
 
-export default { health, auth, users, workspaces, catalog, projects, progress, me, lab, runs, models };
+export default { health, auth, users, workspaces, cameras, catalog, projects, progress, me, lab, runs, models };

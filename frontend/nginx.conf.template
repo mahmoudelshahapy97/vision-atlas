@@ -1,7 +1,8 @@
 # Production counterpart of the Vite dev proxy in vite.config.js.
 #
 # Same contract: the browser only ever talks to this origin; nginx forwards
-# /api, /media, /health and FastAPI's /docs to the API, and /${MINIO_BUCKET}/
+# /api (with the live-camera WebSockets under /api/ws/), /media, /health and
+# FastAPI's /docs to the API, and /${MINIO_BUCKET}/
 # (presigned run files, MINIO_PUBLIC_URL=/) to MinIO. Keep the two files in
 # step -- a path proxied in dev but not here is a 404 that only shows up after
 # a build.
@@ -50,6 +51,18 @@ server {
         proxy_set_header        X-Real-IP         $remote_addr;
         proxy_set_header        X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header        X-Forwarded-Proto $scheme;
+    }
+
+    # Live camera views (WebSocket). Held open as long as someone watches.
+    location /api/ws/ {
+        proxy_pass          ${ATLAS_API_URL};
+        proxy_set_header    Upgrade    $http_upgrade;
+        proxy_set_header    Connection "upgrade";
+        proxy_set_header    Host       $host;
+        proxy_set_header    X-Real-IP  $remote_addr;
+        proxy_buffering     off;
+        proxy_read_timeout  1h;
+        proxy_send_timeout  1h;
     }
 
     # Run inputs and outputs (images, videos, downloads).
