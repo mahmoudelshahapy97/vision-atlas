@@ -165,6 +165,35 @@ SCHEMA_UPGRADES: tuple = (
     );
     """,
     "CREATE INDEX IF NOT EXISTS idx_refresh_session_user ON refresh_session (user_id) WHERE revoked_at IS NULL;",
+    # workspaces; models shared with a workspace
+    """
+    CREATE TABLE IF NOT EXISTS workspace (
+        id                 SERIAL PRIMARY KEY,
+        name               TEXT NOT NULL UNIQUE,
+        slug               TEXT NOT NULL UNIQUE,
+        description        TEXT,
+        -- Live pipelines its cameras may run; NULL means all of them.
+        enabled_pipelines  TEXT[],
+        max_cameras        INTEGER NOT NULL DEFAULT 16 CHECK (max_cameras BETWEEN 0 AND 1000),
+        is_active          BOOLEAN NOT NULL DEFAULT TRUE,
+        created_by         INTEGER REFERENCES app_user (id) ON DELETE SET NULL,
+        created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS workspace_member (
+        workspace_id  INTEGER NOT NULL REFERENCES workspace (id) ON DELETE CASCADE,
+        user_id       INTEGER NOT NULL REFERENCES app_user (id) ON DELETE CASCADE,
+        role          TEXT NOT NULL DEFAULT 'viewer' CHECK (role IN ('viewer', 'operator', 'admin')),
+        created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (workspace_id, user_id)
+    );
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_workspace_member_user ON workspace_member (user_id);",
+    "ALTER TABLE ml_model ADD COLUMN IF NOT EXISTS workspace_id INTEGER REFERENCES workspace (id) ON DELETE SET NULL;",
+    "CREATE INDEX IF NOT EXISTS idx_ml_model_workspace ON ml_model (workspace_id) WHERE workspace_id IS NOT NULL;",
 )
 
 

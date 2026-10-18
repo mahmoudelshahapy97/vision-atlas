@@ -24,6 +24,8 @@ import ViewKanbanIcon from "@mui/icons-material/ViewKanban";
 import HistoryIcon from "@mui/icons-material/History";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import PeopleIcon from "@mui/icons-material/People";
+import GroupIcon from "@mui/icons-material/Group";
+import WorkspacesIcon from "@mui/icons-material/Workspaces";
 import MenuIcon from "@mui/icons-material/Menu";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import LightModeIcon from "@mui/icons-material/LightMode";
@@ -35,13 +37,17 @@ import { useAuth } from "../auth/AuthContext";
 import BrandMark from "../components/BrandMark";
 import { Loading } from "../components/DataStates";
 import UserMenu from "../components/UserMenu";
+import WorkspaceSwitcher from "../components/WorkspaceSwitcher";
+import { useWorkspace } from "../workspace/WorkspaceContext";
 
 const DRAWER_WIDTH = 248;
 
 /**
  * `minimum` is a role from auth/roles.js. Items without one are public: the
- * catalog, labs and model list can be browsed signed out. The API check on
- * each route is the real one; this only decides what the nav shows.
+ * catalog, labs and model list can be browsed signed out. `ws` is a workspace
+ * role: the item needs an active workspace where the user has at least that.
+ * The API check on each route is the real one; this only decides what the nav
+ * shows.
  */
 const NAV_SECTIONS = [
   {
@@ -59,10 +65,17 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    heading: "Operations",
+    items: [
+      { to: "/workspace/members", label: "Members", icon: <GroupIcon />, ws: "viewer" },
+    ],
+  },
+  {
     heading: "Admin",
     items: [
       { to: "/admin", label: "Projects", icon: <AdminPanelSettingsIcon />, minimum: "admin" },
       { to: "/users", label: "Users", icon: <PeopleIcon />, minimum: "admin" },
+      { to: "/workspaces", label: "Workspaces", icon: <WorkspacesIcon />, minimum: "admin" },
     ],
   },
 ];
@@ -141,10 +154,14 @@ export function AppLayout({ mode, onToggleMode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const { hasRole } = useAuth();
+  const { active, hasWsRole } = useWorkspace();
 
   const visibleSections = NAV_SECTIONS.map((section) => ({
     ...section,
-    items: section.items.filter((item) => !item.minimum || hasRole(item.minimum)),
+    heading: section.heading === "Operations" && active ? active.name : section.heading,
+    items: section.items.filter(
+      (item) => (!item.minimum || hasRole(item.minimum)) && (!item.ws || hasWsRole(item.ws))
+    ),
   })).filter((section) => section.items.length > 0);
 
   const drawer = (
@@ -253,8 +270,9 @@ export function AppLayout({ mode, onToggleMode }) {
           <Typography variant="h6" noWrap sx={{ flexGrow: 1, minWidth: 0, visibility: { md: "hidden" } }}>
             {currentTitle}
           </Typography>
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <Box sx={{ display: { xs: "none", sm: "block" } }}>
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
+            <WorkspaceSwitcher />
+            <Box sx={{ display: { xs: "none", lg: "block" } }}>
               <BackendStatus />
             </Box>
             <Tooltip title={mode === "dark" ? "Switch to light" : "Switch to dark"}>

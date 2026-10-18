@@ -48,4 +48,6 @@ class CustomModelResponse(BaseModel):
     is_public: bool
     project_id: Optional[int]
     owner_id: Optional[int]
+    workspace_id: Optional[int] = None
+    workspace_name: Optional[str] = None
     created_at: Optional[datetime] = None

@@ -14,7 +14,8 @@ domain ──< project >── task_type ──< task_step
 Five more hold the accounts and what people do with the catalog: `app_user`
 (email, bcrypt hash, role `user`/`admin`, `is_active`, `token_version`),
 `refresh_session` (one signed-in device's rotating refresh token),
-`user_project` (one user's status and notes on one
+`workspace` and `workspace_member` (a team space and each member's
+`viewer`/`operator`/`admin` role), `user_project` (one user's status and notes on one
 project), `ml_model` (Ultralytics weights someone uploaded), and
 `inference_run` (one Vision Lab run, with its inputs, settings, progress and
 results as JSONB).
@@ -23,6 +24,7 @@ results as JSONB).
 app_user ──< user_project >── project
     │
     ├──< refresh_session
+    ├──< workspace_member >── workspace ──< ml_model (shared, optional)
     ├──< ml_model ───────────── (project, optional)
     └──< inference_run ──────── (project, optional)
 ```

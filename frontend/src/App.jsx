@@ -4,6 +4,7 @@ import { ThemeProvider } from "@mui/material/styles";
 import { AuthProvider } from "./auth/AuthContext";
 import { ToastProvider } from "./components/Toast";
 import AppRouter from "./routes/AppRouter";
+import { WorkspaceProvider } from "./workspace/WorkspaceContext";
 import { buildTheme } from "./utils/theme";
 
 const MODE_KEY = "atlas:color-mode";
@@ -38,7 +39,9 @@ export default function App() {
       <CssBaseline />
       <ToastProvider>
         <AuthProvider>
-          <AppRouter mode={mode} onToggleMode={toggleMode} />
+          <WorkspaceProvider>
+            <AppRouter mode={mode} onToggleMode={toggleMode} />
+          </WorkspaceProvider>
         </AuthProvider>
       </ToastProvider>
     </ThemeProvider>

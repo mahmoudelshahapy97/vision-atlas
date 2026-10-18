@@ -32,6 +32,19 @@ export const users = {
   remove: (id) => api(`/users/${id}`, { method: "DELETE" }),
 };
 
+export const workspaces = {
+  mine: (opts) => api("/workspaces/mine", opts),
+  list: (opts) => api("/workspaces", opts),
+  get: (id, opts) => api(`/workspaces/${id}`, opts),
+  create: (payload) => api("/workspaces", { method: "POST", body: payload }),
+  update: (id, payload) => api(`/workspaces/${id}`, { method: "PATCH", body: payload }),
+  remove: (id) => api(`/workspaces/${id}`, { method: "DELETE" }),
+  members: (id, opts) => api(`/workspaces/${id}/members`, opts),
+  addMember: (id, email, role) => api(`/workspaces/${id}/members`, { method: "POST", body: { email, role } }),
+  setMemberRole: (id, userId, role) => api(`/workspaces/${id}/members/${userId}`, { method: "PATCH", body: { role } }),
+  removeMember: (id, userId) => api(`/workspaces/${id}/members/${userId}`, { method: "DELETE" }),
+};
+
 export const catalog = {
   domains: (opts) => api("/domains", opts),
   taskTypes: (opts) => api("/task-types", opts),
@@ -74,9 +87,9 @@ export const runs = {
 export const models = {
   list: (opts) => api("/models", opts),
   download: (key) => api(`/models/${key}/download`, { method: "POST" }),
-  /** FormData: file (.pt), name, is_public. */
+  /** FormData: file (.pt), name, is_public, workspace_id (optional). */
   upload: (formData) => apiForm("/models/upload", formData),
   remove: (id) => api(`/models/custom/${id}`, { method: "DELETE" }),
 };
 
-export default { health, auth, users, catalog, projects, progress, me, lab, runs, models };
+export default { health, auth, users, workspaces, catalog, projects, progress, me, lab, runs, models };

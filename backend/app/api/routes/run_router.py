@@ -40,8 +40,8 @@ async def _check_model_choice(params: Dict[str, Any], pipe, user: Dict[str, Any]
         return
     if not (isinstance(model, str) and model.startswith("custom:") and model[7:].isdigit()):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unknown model choice.")
-    m = await model_service.get_model(int(model[7:]))
-    if not m or not (m["is_public"] or m["owner_id"] == user["id"]):
+    m = await model_service.visible_to(int(model[7:]), user["id"])
+    if not m:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="That model doesn't exist or isn't shared with you.")
     if m["task"] != pipe.custom_task:
         raise HTTPException(

@@ -11,6 +11,7 @@ import Chip from "@mui/material/Chip";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import IconButton from "@mui/material/IconButton";
 import Link from "@mui/material/Link";
+import MenuItem from "@mui/material/MenuItem";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -30,6 +31,7 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 
 import { models as modelsApi } from "../api/endpoints";
 import { useAuth } from "../auth/AuthContext";
+import { hasWsRole } from "../auth/roles";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { ErrorState } from "../components/DataStates";
 import PageHeader from "../components/PageHeader";
@@ -38,6 +40,7 @@ import { usePolling } from "../hooks/usePolling";
 import { MODEL_DOWNLOAD_POLL_MS } from "../utils/constants";
 import { formatMegabytes } from "../utils/format";
 import { MONO_FONT } from "../utils/theme";
+import { useWorkspace } from "../workspace/WorkspaceContext";
 
 const isDownloading = (data) => Boolean(data?.builtin.some((b) => b.download_state === "downloading"));
 const mono = { fontFamily: MONO_FONT, fontSize: 12.5 };
@@ -59,7 +62,9 @@ export default function Models() {
   const models = usePolling((opts) => modelsApi.list(opts), {
     intervalMs: MODEL_DOWNLOAD_POLL_MS, deps: [user?.id], keepPolling: isDownloading,
   });
-  const [form, setForm] = useState({ name: "", is_public: false });
+  const { workspaces: myWorkspaces } = useWorkspace();
+  const shareTargets = myWorkspaces.filter((w) => w.is_active && hasWsRole(w.my_role, "operator"));
+  const [form, setForm] = useState({ name: "", is_public: false, workspace_id: "" });
   const [file, setFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -84,11 +89,12 @@ export default function Models() {
     fd.append("file", file);
     fd.append("name", form.name || file.name.replace(/\.pt$/, ""));
     fd.append("is_public", form.is_public ? "true" : "false");
+    if (form.workspace_id) fd.append("workspace_id", String(form.workspace_id));
     try {
       const m = await modelsApi.upload(fd);
       toast(`Uploaded “${m.name}” (${m.task}, ${m.classes.length} classes).`);
       setFile(null);
-      setForm({ name: "", is_public: false });
+      setForm({ name: "", is_public: false, workspace_id: "" });
       models.reload();
     } catch (err) {
       toast(err.message, "err");
@@ -220,6 +226,23 @@ export default function Models() {
                       placeholder="Saudi plates YOLO26n v3"
                       sx={{ flexGrow: 1 }}
                     />
+                    {shareTargets.length > 0 && (
+                      <TextField
+                        select
+                        size="small"
+                        label="Share with workspace"
+                        value={form.workspace_id}
+                        onChange={(e) => setForm({ ...form, workspace_id: e.target.value })}
+                        SelectProps={{ displayEmpty: true }}
+                        InputLabelProps={{ shrink: true }}
+                        sx={{ minWidth: 200 }}
+                      >
+                        <MenuItem value="">Only me</MenuItem>
+                        {shareTargets.map((w) => (
+                          <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>
+                        ))}
+                      </TextField>
+                    )}
                     {isAdmin && (
                       <FormControlLabel
                         control={<Checkbox checked={form.is_public} onChange={(e) => setForm({ ...form, is_public: e.target.checked })} />}
@@ -268,10 +291,15 @@ export default function Models() {
                         </TableCell>
                         <TableCell sx={{ ...mono, whiteSpace: "nowrap" }}>{formatMegabytes(m.size_bytes)}</TableCell>
                         <TableCell>
-                          <Chip size="small" label={m.is_public ? "Shared" : "Private"} color={m.is_public ? "info" : "default"} variant="outlined" />
+                          <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
+                            {m.is_public && <Chip size="small" label="Everyone" color="info" variant="outlined" />}
+                            {m.workspace_name && <Chip size="small" label={m.workspace_name} color="secondary" variant="outlined" />}
+                            {!m.is_public && !m.workspace_name && <Chip size="small" label="Private" variant="outlined" />}
+                          </Stack>
                         </TableCell>
                         <TableCell align="right">
-                          {(m.owner_id === user?.id || isAdmin) && (
+                          {(m.owner_id === user?.id || isAdmin ||
+                            myWorkspaces.some((w) => w.id === m.workspace_id && w.my_role === "admin")) && (
                             <Tooltip title="Delete model">
                               <IconButton size="small" color="error" onClick={() => setPendingDelete(m)} aria-label={`Delete ${m.name}`}>
                                 <DeleteOutlineIcon fontSize="small" />

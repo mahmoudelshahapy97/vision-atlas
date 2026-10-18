@@ -189,6 +189,32 @@ UPDATE refresh_session SET revoked_at = NOW(), rotated = TRUE WHERE jti = $1 AND
 UPDATE refresh_session SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL;
 
 
+-- :name model_service._VISIBLE
+-- GET /api/models, a lab's model picker, POST /api/runs: public, yours, or shared
+-- with an active workspace you belong to
+SELECT ml.*, ws.name AS workspace_name
+FROM ml_model ml LEFT JOIN workspace ws ON ws.id = ml.workspace_id
+WHERE ml.is_public OR ($1::int IS NOT NULL AND (
+    ml.owner_id = $1
+    OR ml.workspace_id IN (
+        SELECT m.workspace_id FROM workspace_member m JOIN workspace w ON w.id = m.workspace_id
+        WHERE m.user_id = $1 AND w.is_active
+    )
+));
+
+-- :name workspace_service.list_for_user
+-- GET /api/workspaces/mine (system admins get every workspace instead)
+SELECT w.*, m.role AS my_role,
+       (SELECT COUNT(*) FROM workspace_member x WHERE x.workspace_id = w.id) AS member_count
+FROM workspace w JOIN workspace_member m ON m.workspace_id = w.id AND m.user_id = $1
+WHERE w.is_active
+ORDER BY w.name;
+
+-- :name workspace_service.role_of
+-- every workspace-scoped request (api/deps.py workspace_access)
+SELECT role FROM workspace_member WHERE workspace_id = $1 AND user_id = $2;
+
+
 -- ===========================================================================
 -- 5. LAB RUNS
 -- ===========================================================================

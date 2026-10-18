@@ -19,10 +19,17 @@ let refreshToken = null;
 let unauthorizedHandler = null;
 let tokensHandler = null;
 let refreshing = null;
+let workspaceId = null;
 
 export function setTokens(access, refresh) {
   token = access;
   refreshToken = refresh;
+}
+
+/** The active workspace, sent as X-Workspace-Id on every request (see
+ *  workspace/WorkspaceContext.jsx); workspace-scoped routes require it. */
+export function setWorkspace(id) {
+  workspaceId = id ?? null;
 }
 
 export const getAccessToken = () => token;
@@ -102,7 +109,9 @@ async function send(url, makeInit, retry = true) {
 }
 
 function authHeaders() {
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  if (token && workspaceId != null) headers["X-Workspace-Id"] = String(workspaceId);
+  return headers;
 }
 
 /** JSON request. `path` is relative to /api, e.g. "/projects". Falsy params are left out. */

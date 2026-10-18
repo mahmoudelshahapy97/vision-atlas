@@ -10,6 +10,7 @@ from app.api.routes import (
     project_router,
     run_router,
     user_router,
+    workspace_router,
 )
 from app.core.config import config
 
@@ -18,6 +19,7 @@ router = APIRouter(prefix=config.app_api_prefix)
 
 router.include_router(auth_router.router)
 router.include_router(user_router.router)
+router.include_router(workspace_router.router)
 router.include_router(catalog_router.router)
 router.include_router(lab_router.router)  # before project_router: /projects/{id}/lab vs /projects/{key}
 router.include_router(project_router.router)

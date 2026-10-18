@@ -10,10 +10,11 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
 
-from app.api.deps import get_current_user, is_admin, optional_user, require_role
+from app.api.deps import get_current_user, is_admin, optional_user, require_role, workspace_access
 from app.core.config import config
 from app.schemas.lab_schemas import CustomModelResponse
 from app.services.model_service import model_service
+from app.services.workspace_service import workspace_service
 from app.utils.upload_utils import UploadTooLarge, save_upload
 from app.vision.registry import ModelError, manager
 
@@ -82,8 +83,13 @@ async def upload_model(
     name: str = Form(...),
     project_id: Optional[int] = Form(None),
     is_public: bool = Form(False),
+    workspace_id: Optional[int] = Form(None),
     current_user: Dict[str, Any] = Depends(get_current_user),
 ) -> Dict[str, Any]:
+    """With `workspace_id`, the model is shared with that workspace's members
+    (the uploader must be operator or above there)."""
+    if workspace_id is not None:
+        await workspace_access(workspace_id, current_user, "operator")
     if not file.filename or Path(file.filename).suffix.lower() != ".pt":
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -116,6 +122,7 @@ async def upload_model(
             classes=names,
             size_bytes=size,
             is_public=bool(is_public and is_admin(current_user)),
+            workspace_id=workspace_id,
         )
     except Exception as e:
         path.unlink(missing_ok=True)
@@ -125,9 +132,15 @@ async def upload_model(
 
 @router.delete("/custom/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_model(model_id: int, current_user: Dict[str, Any] = Depends(get_current_user)) -> Response:
-    m = await model_service.get_model(model_id)
-    if not m or (m["owner_id"] != current_user["id"] and not is_admin(current_user)):
+    m = await model_service.visible_to(model_id, current_user["id"]) or (
+        await model_service.get_model(model_id) if is_admin(current_user) else None
+    )
+    if not m:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found.")
+    if m["owner_id"] != current_user["id"] and not is_admin(current_user):
+        # A workspace admin may remove models shared with their workspace.
+        if not m["workspace_id"] or await workspace_service.role_of(m["workspace_id"], current_user["id"]) != "admin":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the owner or an admin can delete this model.")
     try:
         Path(m["file_path"]).unlink(missing_ok=True)
         await run_in_threadpool(manager.forget_custom, f"custom:{model_id}")

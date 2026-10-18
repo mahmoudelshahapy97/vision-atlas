@@ -44,7 +44,7 @@ app/
   core/                   config.py · database.py (asyncpg pool, SCHEMA_UPGRADES, db_manager) · security.py · logging_config.py
   api/
     deps.py               optional_user · get_current_user · require_role("admin")
-    routes/               auth · user · catalog · project · progress · lab · run · model  (*_router.py, all under /api)
+    routes/               auth · user · workspace · catalog · project · progress · lab · run · model  (*_router.py, all under /api)
   schemas/                *_schemas.py: request/response models (XCreate / XUpdate / XResponse)
   services/               *_service.py: SQL and business logic, one singleton each
   utils/                  sql_utils (placeholders, LIKE escaping) · slug_utils · upload_utils
@@ -135,6 +135,24 @@ Anyone can register. `POST /api/auth/register`, `/login` and `/refresh` return
 - The admin guards refuse to delete or demote yourself, and refuse to demote,
   deactivate or delete the last active admin.
 
+## Workspaces
+
+A workspace holds a team's cameras, their events and the models shared with
+it. The catalog, lab runs and boards stay per user.
+- System admins create workspaces and set each one's camera limit and allowed
+  live pipelines (`enabled_pipelines`; `null` allows all).
+- Members have a workspace role: `viewer < operator < admin`. Viewers watch;
+  operators also run cameras, handle events and share models; admins also
+  manage cameras and members. System admins act as admin in every workspace.
+- Workspace-scoped routes take the active workspace in the `X-Workspace-Id`
+  header (`require_workspace(minimum)` in `app/api/deps.py`).
+- Non-members get 404, so workspace ids don't leak. Members of a deactivated
+  workspace get 403.
+- A workspace admin can't leave the workspace without an admin; a system admin
+  can.
+- A model uploaded with `workspace_id` is visible to that workspace's members.
+  Deleting the workspace hands the model back to its owner.
+
 ## API
 
 Everything is under `/api`. Interactive docs are at `/docs`.
@@ -148,6 +166,12 @@ Everything is under `/api`. Interactive docs are at `/docs`.
 | GET · POST | `/api/users` | admin | Accounts (`q`, `role`, `page`, `per_page`) · create one |
 | GET · PATCH · DELETE | `/api/users/{id}` | admin | One account: name, role, `is_active` · delete with its runs and models |
 | POST | `/api/users/{id}/reset-password` | admin | Set a new password; signs the account out everywhere |
+| GET | `/api/workspaces/mine` | user | Your workspaces with your role in each (all of them for system admins) |
+| GET · POST | `/api/workspaces` | admin | Every workspace · create one |
+| GET | `/api/workspaces/{id}` | ws viewer | One workspace with your role |
+| PATCH · DELETE | `/api/workspaces/{id}` | admin | Name, description, `max_cameras`, `enabled_pipelines`, `is_active` · delete |
+| GET | `/api/workspaces/{id}/members` | ws viewer | Members and their roles |
+| POST · PATCH · DELETE | `/api/workspaces/{id}/members[/{user_id}]` | ws admin | Add by email, change role, remove (any member may remove themself) |
 | GET | `/api/domains` · `/api/task-types` · `/api/technologies` | – | Catalog reference data with counts |
 | GET | `/api/projects` | optional | `q`, `domain`, `task`, `level`, `picks`, `status`, `tech`, `sort`, `page`, `size` |
 | GET | `/api/projects/facets` | optional | Counts per domain, task and level (each ignores its own filter) |
@@ -162,8 +186,8 @@ Everything is under `/api`. Interactive docs are at `/docs`.
 | DELETE | `/api/runs/{public_id}` | owner | Delete a run and its files |
 | GET | `/api/models` | optional | Public models (with download status) and custom models |
 | POST | `/api/models/{key}/download` | admin | Prefetch a public model |
-| POST | `/api/models/upload` | user | Upload `.pt` weights |
-| DELETE | `/api/models/custom/{id}` | owner | Delete an uploaded model |
+| POST | `/api/models/upload` | user | Upload `.pt` weights; `workspace_id` shares them with a workspace (ws operator) |
+| DELETE | `/api/models/custom/{id}` | owner | Delete an uploaded model (also its workspace's admins) |
 | GET | `/health` · `/api/health` | – | Health (with pool stats) · the original probe |
 
 Errors are FastAPI's `{"detail": "..."}`. The console shows the message as-is.
@@ -349,7 +373,7 @@ docker compose run --rm --no-deps -v ./backend/tests:/app/tests -v ./database:/s
   api sh -c "pip install -q -r requirements-dev.txt && pytest -q"
 
 # locally, against a Postgres on localhost:5432 and models-serve on localhost:8500
-cd backend && pytest                # API, auth, accounts, catalog, progress, lab runs, uploads, custom models, model client
+cd backend && pytest                # API, auth, accounts, workspaces, catalog, progress, lab runs, uploads, custom models, model client
 pytest -m slow                      # runs every project lab on its sample through the real API (minutes on CPU)
 ```
 

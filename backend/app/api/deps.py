@@ -13,11 +13,12 @@ waiting for the token to expire.
 import logging
 from typing import Any, Dict, Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.security import decode_token
 from app.services.user_service import user_service
+from app.services.workspace_service import WS_ROLE_LEVEL, workspace_service
 
 logger = logging.getLogger(__name__)
 
@@ -81,3 +82,57 @@ def require_role(minimum: str):
 
 def is_admin(user: Optional[Dict[str, Any]]) -> bool:
     return bool(user) and user["role"] == "admin"
+
+
+# ---------------------------------------------------------------- workspaces
+
+_WS_NOT_FOUND = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not found.")
+
+
+async def workspace_access(workspace_id: int, user: Dict[str, Any], minimum: str = "viewer") -> Dict[str, Any]:
+    """{workspace, role, user} if `user` may act at `minimum` in the workspace.
+    Non-members get 404 rather than 403, so workspace ids don't leak. System
+    admins act as workspace admin everywhere, deactivated workspaces included."""
+    ws = await workspace_service.get(workspace_id)
+    if not ws:
+        raise _WS_NOT_FOUND
+    if is_admin(user):
+        role = "admin"
+    else:
+        role = await workspace_service.role_of(workspace_id, user["id"])
+        if not role:
+            raise _WS_NOT_FOUND
+        if not ws["is_active"]:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This workspace has been deactivated.")
+    if WS_ROLE_LEVEL[role] < WS_ROLE_LEVEL[minimum]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"This needs the workspace {minimum} role. Ask a workspace admin.",
+        )
+    return {"workspace": ws, "role": role, "user": user}
+
+
+def require_workspace(minimum: str = "viewer"):
+    """Dependency factory for workspace-scoped routes (cameras, events, ...):
+    the console sends the active workspace in the X-Workspace-Id header."""
+
+    async def _guard(
+        x_workspace_id: Optional[int] = Header(default=None),
+        user: Dict[str, Any] = Depends(get_current_user),
+    ) -> Dict[str, Any]:
+        if x_workspace_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Choose a workspace first (X-Workspace-Id header)."
+            )
+        return await workspace_access(x_workspace_id, user, minimum)
+
+    return _guard
+
+
+def require_workspace_path(minimum: str = "viewer"):
+    """The same check for routes with the workspace in the path (/workspaces/{workspace_id}/...)."""
+
+    async def _guard(workspace_id: int, user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+        return await workspace_access(workspace_id, user, minimum)
+
+    return _guard

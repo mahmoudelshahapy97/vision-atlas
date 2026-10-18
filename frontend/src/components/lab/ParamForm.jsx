@@ -202,7 +202,7 @@ export default function ParamForm({ tab, values, setValue, activeGeo, setActiveG
           helperText={<>Uses your own {tab.custom_task} weights if you pick them. <Link component={RouterLink} to="/models">Upload a model</Link></>}
         >
           <MenuItem value="">{tab.model_specs?.[0] ? `${tab.model_specs[0].name} (built-in)` : "Built-in"}</MenuItem>
-          {tab.custom_models.map((m) => <MenuItem key={m.key} value={m.key}>{m.name}{m.public ? " (shared)" : ""}</MenuItem>)}
+          {tab.custom_models.map((m) => <MenuItem key={m.key} value={m.key}>{m.name}{m.workspace ? ` (${m.workspace})` : m.public ? " (shared)" : ""}</MenuItem>)}
         </TextField>
       )}
       {basic.map(field)}
